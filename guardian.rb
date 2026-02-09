@@ -5,21 +5,21 @@
 class Guardian < Formula
   desc "A constitutional engine for team agreements -- serverless, git-native, LLM-powered"
   homepage "https://github.com/AlexGladkov/guardian-cli"
-  version "0.1.0"
+  version "0.1.1"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.0/guardian-cli_0.1.0_darwin_amd64.tar.gz"
-      sha256 "bca882ab15a477f6930de30e84ce2dfef2749bafed410ee12b6db721012b97ed"
+      url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.1/guardian-cli_0.1.1_darwin_amd64.tar.gz"
+      sha256 "75d8efa814240ede2ca2a6480ef12fc70647d03088b007b772cf450e138851fc"
 
       def install
         bin.install "guardian"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.0/guardian-cli_0.1.0_darwin_arm64.tar.gz"
-      sha256 "33cab0ba8ddb895ed3522e62d78ce4804406c443d9fb1b9a4de41c73df41df95"
+      url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.1/guardian-cli_0.1.1_darwin_arm64.tar.gz"
+      sha256 "942a916a45d2b7270f974a89d8e4e0edfb94bdc36dcc37fd66f0f9ae50dc6dfd"
 
       def install
         bin.install "guardian"
@@ -29,15 +29,15 @@ class Guardian < Formula
 
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
-      url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.0/guardian-cli_0.1.0_linux_amd64.tar.gz"
-      sha256 "d572d35ef01ab5b620957b71c2211ce37eb185786fd23c642460bb91797de477"
+      url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.1/guardian-cli_0.1.1_linux_amd64.tar.gz"
+      sha256 "9d066d4cc83e8ccdda157871b2e20c07b4143054f6eaa341597db1a8f85314b0"
       def install
         bin.install "guardian"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.0/guardian-cli_0.1.0_linux_arm64.tar.gz"
-      sha256 "94c6c965b9f2c53e5ac4160f752193e8d64bd1ef5079822ac906208cc5dd12af"
+      url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.1/guardian-cli_0.1.1_linux_arm64.tar.gz"
+      sha256 "600bbdcbd1ef5a50287e6b8765ec8d6b5be7ab904309145c515c80223b232f6b"
       def install
         bin.install "guardian"
       end

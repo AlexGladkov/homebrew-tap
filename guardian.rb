@@ -11,7 +11,7 @@ class Guardian < Formula
   on_macos do
     if Hardware::CPU.intel?
       url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.0/guardian-cli_0.1.0_darwin_amd64.tar.gz"
-      sha256 "8274c4d873660c89f50cd7d3926da1f3d3f9e43576678ba031c41e7bb2d47b64"
+      sha256 "063d3af942c430040df55aadbf238ac10b1fde7f614a6a06666ee9545fe10e5f"
 
       def install
         bin.install "guardian"
@@ -19,7 +19,7 @@ class Guardian < Formula
     end
     if Hardware::CPU.arm?
       url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.0/guardian-cli_0.1.0_darwin_arm64.tar.gz"
-      sha256 "2e26d3bee5eebff7335243a7b355189f3286541e50961a5e4a01f801695ae2ef"
+      sha256 "6703bdc7e1d2cc6aabbac355446962fc47e66fd10b167dd02e933950b3ed3e22"
 
       def install
         bin.install "guardian"
@@ -30,14 +30,14 @@ class Guardian < Formula
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
       url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.0/guardian-cli_0.1.0_linux_amd64.tar.gz"
-      sha256 "ed3528b34b76a2291ad169f15c88b58ec4982d772433ef42729f7546031cf451"
+      sha256 "3046ab4870d1bc14969f158c4ceef7c1e5d671d820fbdd169270f02050d5a026"
       def install
         bin.install "guardian"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
       url "https://github.com/AlexGladkov/guardian-cli/releases/download/v0.1.0/guardian-cli_0.1.0_linux_arm64.tar.gz"
-      sha256 "5efe4c9c3f8e125061ddf655e63baa3d429ee4a46afe6b6ac6def4ae7574ed42"
+      sha256 "2ca37d2837fc351ea9d65467a79caff725413ff7704e80fa4b0f73d474418b5f"
       def install
         bin.install "guardian"
       end

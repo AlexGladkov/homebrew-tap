@@ -7,16 +7,16 @@ class Harnest < Formula
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/AlexGladkov/harnest/releases/download/v0.3.0/harnest-v0.3.0-darwin-arm64.tar.gz"
-      sha256 "5a8c84a11e6964790a008e294a1f0cc8e5b969d06af473c95accec370491d439"
+      sha256 "348ab896ed98e227e24cf2c3170b809007246d804b65bbd50dafdf73f4d56e9e"
     else
       url "https://github.com/AlexGladkov/harnest/releases/download/v0.3.0/harnest-v0.3.0-darwin-amd64.tar.gz"
-      sha256 "4d935bb5802a5e99e925ef89e14f235664119f33dba1df7cc570335b94214508"
+      sha256 "bffd585923e8023716932ff13f324049a9a251536213609d166d2cf3137594b1"
     end
   end
 
   on_linux do
     url "https://github.com/AlexGladkov/harnest/releases/download/v0.3.0/harnest-v0.3.0-linux-amd64.tar.gz"
-    sha256 "23a0c6e42541b354151db1e4367b23ed56663374e98c3df6cdce36cf1b7b0761"
+    sha256 "0a215a70dc543ae701048ed917c8fafb885b6cc380ebbb0c3844e38fbaa7ed5d"
   end
 
   def install

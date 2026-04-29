@@ -1,22 +1,22 @@
 class Harnest < Formula
   desc "AI coding assistant configurator - detects stack, generates agent configs"
   homepage "https://github.com/AlexGladkov/harnest"
-  version "0.5.0"
+  version "0.6.0"
   license "CC-BY-NC-4.0"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/harnest/releases/download/v0.5.0/harnest-v0.5.0-darwin-arm64.tar.gz"
-      sha256 "b9f8454d7205b42179115fb7559d81307ecf563c8f3aef06638efa2e35c84fc8"
+      url "https://github.com/AlexGladkov/harnest/releases/download/v0.6.0/harnest-v0.6.0-darwin-arm64.tar.gz"
+      sha256 "a63837b9bccc90fadc34964396981877d3788d70a0bf30d8d2edd20bb608a4ba"
     else
-      url "https://github.com/AlexGladkov/harnest/releases/download/v0.5.0/harnest-v0.5.0-darwin-amd64.tar.gz"
-      sha256 "ca9d01f15260256d4d7062d0bff46e765ddfea3614a595e784b74f08edc5bc29"
+      url "https://github.com/AlexGladkov/harnest/releases/download/v0.6.0/harnest-v0.6.0-darwin-amd64.tar.gz"
+      sha256 "e2d699d829e6c4e65095b76ecda5da15a5af618986d2a91104458468ce54332a"
     end
   end
 
   on_linux do
-    url "https://github.com/AlexGladkov/harnest/releases/download/v0.5.0/harnest-v0.5.0-linux-amd64.tar.gz"
-    sha256 "cafc8718bfe13978bf15e61c4de3fe6b5a6271ffb8d07f641e05ea174d31cdad"
+    url "https://github.com/AlexGladkov/harnest/releases/download/v0.6.0/harnest-v0.6.0-linux-amd64.tar.gz"
+    sha256 "e267723d20554ae1a6b73fa1668837fa9b51969194e9fffac9b9764ed28597da"
   end
 
   def install

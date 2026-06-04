@@ -4,25 +4,25 @@
 class Tokenplace < Formula
   desc "CLI-first AI infrastructure marketplace for the Russian engineering market"
   homepage "https://github.com/AlexGladkov/tokenplace"
-  version "0.3.0"
+  version "0.4.0"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.3.0/tokenplace-0.3.0-aarch64-apple-darwin.tar.gz"
-      sha256 "03ceb3b39b66eb5e9d44ef232c491044a6c0ea9f7416042ef26afeda9d2f9087"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.4.0/tokenplace-0.4.0-aarch64-apple-darwin.tar.gz"
+      sha256 "757dc2c5cf71c597c387f46ec72fac4f9bb80e2b1dc6999de5d7829e38892f90"
     else
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.3.0/tokenplace-0.3.0-x86_64-apple-darwin.tar.gz"
-      sha256 "555e8193d52b0f4e994bb3b53da52281a3d09a1211935f72d070e47e41f05dd8"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.4.0/tokenplace-0.4.0-x86_64-apple-darwin.tar.gz"
+      sha256 "9c1dde45cff20c71599687b9a4dfaf37be4cd2141ad2671f54bf028fe8ba54fd"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.3.0/tokenplace-0.3.0-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "830fae9cb0b7180bde62f253f758ed0491695fc6092b8de8959957667831e459"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.4.0/tokenplace-0.4.0-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "ecbaceeb23c36b5f0ed80fcfb984686f6c1fcc5f791aabca58f0522f55cb6110"
     else
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.3.0/tokenplace-0.3.0-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "c7d57c2740dd10b46c7a4d50b2a8eaf9a30300f966ab9bdf2336d3d899971e23"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.4.0/tokenplace-0.4.0-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "e73814342827873499793b1a3ea97853e7d7f9d7391e96135dfce071c6093faa"
     end
   end
 

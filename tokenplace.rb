@@ -4,25 +4,25 @@
 class Tokenplace < Formula
   desc "CLI-first AI infrastructure marketplace for the Russian engineering market"
   homepage "https://github.com/AlexGladkov/tokenplace"
-  version "0.6.0"
+  version "0.7.0"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.6.0/tokenplace-0.6.0-aarch64-apple-darwin.tar.gz"
-      sha256 "8ebbb90b76d6f8a113b9c52696ce14f73857250d25b432de4d612f9fabeceacb"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.7.0/tokenplace-0.7.0-aarch64-apple-darwin.tar.gz"
+      sha256 "29c9e0d68251436dd9cafdf067387a0cd49acb423efe571df2a11c28b45ea7c3"
     else
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.6.0/tokenplace-0.6.0-x86_64-apple-darwin.tar.gz"
-      sha256 "6267f64f56ce2641ade348457749ac2b254ccb7b087872edb280dd06fde5e6ac"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.7.0/tokenplace-0.7.0-x86_64-apple-darwin.tar.gz"
+      sha256 "ff6885647375c4e1c41068ff24a35206be9dcff67c7202f493f42129d5d95ac0"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.6.0/tokenplace-0.6.0-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "b0e8382e2e4ed6380143fba4266a9800f737523daacff679d3e755ce0cf17243"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.7.0/tokenplace-0.7.0-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "179e22df4e540b8587b389c94b3cc26a8465b0bc63408d7000d52d6e5b9a591e"
     else
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.6.0/tokenplace-0.6.0-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "7ca6567376c0e2c47f211d5fd5b1a1e5a3aa3999e992aec31bde3144850cddf2"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.7.0/tokenplace-0.7.0-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "43aedbfad92cc5e215b7be4ce592f77c28e8a088dbd6cf1063c163425d724766"
     end
   end
 

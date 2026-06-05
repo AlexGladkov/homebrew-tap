@@ -1,13 +1,13 @@
 class Personality < Formula
   desc "Self-hosted personality framework — second-self AI agents (REPL + plugins)"
   homepage "https://github.com/AlexGladkov/homebrew-tap"
-  version "0.7.1"
+  version "0.8.0"
   license :cannot_represent
 
   on_macos do
     on_arm do
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/v0.7.1/personality-darwin-arm64-v0.7.1.tar.gz"
-      sha256 "09049ca44f87f916616854caf893a295a81b6f034261c66a654ebadb764c041f"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/v0.8.0/personality-darwin-arm64-v0.8.0.tar.gz"
+      sha256 "23f1f22aa3b4a2f8a9caa4d9f7b7a1c702bf8f52d6a1a617582590aee7cdcb65"
     end
     # Intel build ships with the next CI-driven release.
   end

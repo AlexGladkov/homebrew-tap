@@ -1,19 +1,19 @@
 class Tokenplace < Formula
   desc "CLI-first AI infrastructure marketplace for the Russian engineering market"
   homepage "https://github.com/AlexGladkov/tokenplace"
-  version "0.14.0"
+  version "0.14.1"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.14.0/tokenplace-0.14.0-aarch64-apple-darwin.tar.gz"
-      sha256 "17e77869b35d55ead04211d29d8eac074cdf9c3ca37b6905834f23d2aaffa3fd"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.14.1/tokenplace-0.14.1-aarch64-apple-darwin.tar.gz"
+      sha256 "685300e4a45b32527478ad2cc82bb93abe29fc0eba5d99715afe76ffb22b970b"
     else
-      odie "tokenplace 0.14.0 ships only darwin-arm64 binaries via brew. Build from source: https://github.com/AlexGladkov/tokenplace"
+      odie "tokenplace 0.14.1 ships only darwin-arm64 binaries via brew. Build from source: https://github.com/AlexGladkov/tokenplace"
     end
   end
 
   on_linux do
-    odie "tokenplace 0.14.0 ships only darwin-arm64 binaries via brew. Build from source: https://github.com/AlexGladkov/tokenplace"
+    odie "tokenplace 0.14.1 ships only darwin-arm64 binaries via brew. Build from source: https://github.com/AlexGladkov/tokenplace"
   end
 
   def install

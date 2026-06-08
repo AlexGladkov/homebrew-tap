@@ -17,7 +17,7 @@ class Tokenplace < Formula
   on_linux do
     if Hardware::CPU.intel?
       url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.17.7/tokenplace-0.17.7-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "2db197ca97f00dc7ee149a4d6f5682ca5947f0ec62a4b05d6cd3e2f84224e3c0"
+      sha256 "b382579d26b642550b07451a4bbff2eb38535772c322894351f9eaf70d5392e6"
     else
       odie "tokenplace 0.17.7 ships only linux-x86_64 binaries via brew on Linux. Build from source: https://github.com/AlexGladkov/tokenplace"
     end

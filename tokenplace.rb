@@ -13,7 +13,12 @@ class Tokenplace < Formula
   end
 
   on_linux do
-    odie "tokenplace 0.17.5 ships only darwin-arm64 binaries via brew. Build from source: https://github.com/AlexGladkov/tokenplace"
+    if Hardware::CPU.intel?
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.17.5/tokenplace-0.17.5-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "e353ecdf541b8b8db09f96d84614daebde9ccb145c291daba69c46e4b3dca195"
+    else
+      odie "tokenplace 0.17.5 ships only linux-x86_64 binaries via brew on Linux. Build from source: https://github.com/AlexGladkov/tokenplace"
+    end
   end
 
   def install

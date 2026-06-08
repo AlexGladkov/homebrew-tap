@@ -3,6 +3,8 @@ class Tokenplace < Formula
   homepage "https://github.com/AlexGladkov/tokenplace"
   version "0.17.5"
 
+  depends_on "ollama"
+
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.17.5/tokenplace-0.17.5-aarch64-apple-darwin.tar.gz"

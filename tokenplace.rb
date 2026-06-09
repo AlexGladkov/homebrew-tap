@@ -8,7 +8,7 @@ class Tokenplace < Formula
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.21.0/tokenplace-0.21.0-aarch64-apple-darwin.tar.gz"
-      sha256 "56ed22ea1637d540c6143db43465e0b5ac3dc7d333de74cdabee256e06389e54"
+      sha256 "74d5aacdf7349885720319c8db38a2f2cfa2a41c0251c73030c8e318616ff4f3"
     else
       odie "tokenplace 0.21.0 ships only darwin-arm64 binaries via brew. Build from source: https://github.com/AlexGladkov/tokenplace"
     end
@@ -17,7 +17,7 @@ class Tokenplace < Formula
   on_linux do
     if Hardware::CPU.intel?
       url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.21.0/tokenplace-0.21.0-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "56ed22ea1637d540c6143db43465e0b5ac3dc7d333de74cdabee256e06389e54"
+      sha256 "74d5aacdf7349885720319c8db38a2f2cfa2a41c0251c73030c8e318616ff4f3"
     else
       odie "tokenplace 0.21.0 ships only linux-x86_64 binaries via brew on Linux. Build from source: https://github.com/AlexGladkov/tokenplace"
     end

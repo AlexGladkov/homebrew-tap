@@ -1,25 +1,25 @@
 class Tokenplace < Formula
   desc "CLI-first AI infrastructure marketplace for the Russian engineering market"
   homepage "https://github.com/AlexGladkov/tokenplace"
-  version "0.24.1"
+  version "0.25.0"
 
   depends_on "ollama"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.24.1/tokenplace-0.24.1-aarch64-apple-darwin.tar.gz"
-      sha256 "2fe84686603bb37c3a1f9180eb6320bf23b4f304a72b4f74e44541683949128c"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.25.0/tokenplace-0.25.0-aarch64-apple-darwin.tar.gz"
+      sha256 "bcf3747ac2a5e229a5dcaac0c83e59230fe22426df1c9a1612c998876acd2d8a"
     else
-      odie "tokenplace 0.24.1 ships only darwin-arm64 binaries via brew. Build from source: https://github.com/AlexGladkov/tokenplace"
+      odie "tokenplace 0.25.0 ships only darwin-arm64 binaries via brew. Build from source: https://github.com/AlexGladkov/tokenplace"
     end
   end
 
   on_linux do
     if Hardware::CPU.intel?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.24.1/tokenplace-0.24.1-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "2fe84686603bb37c3a1f9180eb6320bf23b4f304a72b4f74e44541683949128c"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.25.0/tokenplace-0.25.0-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "bcf3747ac2a5e229a5dcaac0c83e59230fe22426df1c9a1612c998876acd2d8a"
     else
-      odie "tokenplace 0.24.1 ships only linux-x86_64 binaries via brew on Linux. Build from source: https://github.com/AlexGladkov/tokenplace"
+      odie "tokenplace 0.25.0 ships only linux-x86_64 binaries via brew on Linux. Build from source: https://github.com/AlexGladkov/tokenplace"
     end
   end
 

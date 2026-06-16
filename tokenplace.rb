@@ -4,27 +4,27 @@
 class Tokenplace < Formula
   desc "CLI-first AI infrastructure marketplace for the Russian engineering market"
   homepage "https://github.com/AlexGladkov/tokenplace"
-  version "0.29.0"
+  version "0.30.0"
 
   depends_on "ollama"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.29.0/tokenplace-0.29.0-aarch64-apple-darwin.tar.gz"
-      sha256 "d03f7cd4c226bc953c9363da1abd9f14e7797f7efba8a6df1930111256d6b233"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.30.0/tokenplace-0.30.0-aarch64-apple-darwin.tar.gz"
+      sha256 "36e26a04aef60a6eae2eb2e6803de11de40e31b076178044bb1521f80f93702d"
     else
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.29.0/tokenplace-0.29.0-x86_64-apple-darwin.tar.gz"
-      sha256 "d03f7cd4c226bc953c9363da1abd9f14e7797f7efba8a6df1930111256d6b233"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.30.0/tokenplace-0.30.0-x86_64-apple-darwin.tar.gz"
+      sha256 "36e26a04aef60a6eae2eb2e6803de11de40e31b076178044bb1521f80f93702d"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.29.0/tokenplace-0.29.0-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "d03f7cd4c226bc953c9363da1abd9f14e7797f7efba8a6df1930111256d6b233"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.30.0/tokenplace-0.30.0-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "36e26a04aef60a6eae2eb2e6803de11de40e31b076178044bb1521f80f93702d"
     else
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.29.0/tokenplace-0.29.0-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "d03f7cd4c226bc953c9363da1abd9f14e7797f7efba8a6df1930111256d6b233"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.30.0/tokenplace-0.30.0-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "36e26a04aef60a6eae2eb2e6803de11de40e31b076178044bb1521f80f93702d"
     end
   end
 

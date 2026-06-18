@@ -3,27 +3,25 @@
 class Tokenplace < Formula
   desc "CLI-first AI infrastructure marketplace for the Russian engineering market"
   homepage "https://github.com/AlexGladkov/tokenplace"
-  version "0.33.0"
+  version "0.34.0"
 
   depends_on "ollama"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.33.0/tokenplace-0.33.0-aarch64-apple-darwin.tar.gz"
-      sha256 "07ac9d5f0d10ae7cc1e38ecb578b00dc83fdb18f238260204d1e6247eb09da06"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.34.0/tokenplace-0.34.0-aarch64-apple-darwin.tar.gz"
+      sha256 "132325132e3822729365ea1315d84de5d80f1bf4fe23711f0b8b684a530a1fe3"
     else
-      odie "tokenplace 0.33.0 ships no Intel-mac binary. Build from source: https://github.com/AlexGladkov/tokenplace"
+      odie "tokenplace 0.34.0 ships no Intel-mac binary. Build from source: https://github.com/AlexGladkov/tokenplace"
     end
   end
 
   on_linux do
-    odie "tokenplace 0.33.0 ships only darwin-arm64 in this build. Linux follows shortly — pin 0.32.0 or build from source: https://github.com/AlexGladkov/tokenplace"
+    odie "tokenplace 0.34.0 ships only darwin-arm64 in this build. Linux follows shortly — pin 0.32.0 or build from source: https://github.com/AlexGladkov/tokenplace"
   end
 
   def install
     bin.install "tokenplace"
-    # Sibling helper binary launched by launchd/systemd. Must live next to
-    # the main CLI so `current_exe()`'s parent dir can locate it.
     bin.install "tp-host-daemon"
   end
 

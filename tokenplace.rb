@@ -3,21 +3,21 @@
 class Tokenplace < Formula
   desc "CLI-first AI infrastructure marketplace for the Russian engineering market"
   homepage "https://github.com/AlexGladkov/tokenplace"
-  version "0.34.0"
+  version "0.35.0"
 
   depends_on "ollama"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.34.0/tokenplace-0.34.0-aarch64-apple-darwin.tar.gz"
-      sha256 "132325132e3822729365ea1315d84de5d80f1bf4fe23711f0b8b684a530a1fe3"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.35.0/tokenplace-0.35.0-aarch64-apple-darwin.tar.gz"
+      sha256 "f78efe056006d9b6cd355dfc8c1d8a5098226e9545b3aa3a6551d88a1b701f6b"
     else
-      odie "tokenplace 0.34.0 ships no Intel-mac binary. Build from source: https://github.com/AlexGladkov/tokenplace"
+      odie "tokenplace 0.35.0 ships no Intel-mac binary. Build from source: https://github.com/AlexGladkov/tokenplace"
     end
   end
 
   on_linux do
-    odie "tokenplace 0.34.0 ships only darwin-arm64 in this build. Linux follows shortly — pin 0.32.0 or build from source: https://github.com/AlexGladkov/tokenplace"
+    odie "tokenplace 0.35.0 ships only darwin-arm64 in this build. Linux follows shortly — pin 0.32.0 or build from source: https://github.com/AlexGladkov/tokenplace"
   end
 
   def install
@@ -28,8 +28,8 @@ class Tokenplace < Formula
   def caveats
     <<~EOS
       A second binary `tp-host-daemon` is installed alongside `tokenplace`.
-      It is invoked by launchd / systemd when you publish a model via the
-      TUI — do not delete it.
+      It is invoked by launchd / systemd / Task Scheduler when you publish a
+      model via the TUI — do not delete it.
     EOS
   end
 

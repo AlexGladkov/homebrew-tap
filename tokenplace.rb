@@ -3,39 +3,41 @@
 class Tokenplace < Formula
   desc "CLI-first AI infrastructure marketplace for the Russian engineering market"
   homepage "https://github.com/AlexGladkov/tokenplace"
-  version "0.35.0"
+  version "0.36.0"
 
   depends_on "ollama"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.35.0/tokenplace-0.35.0-aarch64-apple-darwin.tar.gz"
-      sha256 "f78efe056006d9b6cd355dfc8c1d8a5098226e9545b3aa3a6551d88a1b701f6b"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.36.0/tokenplace-0.36.0-aarch64-apple-darwin.tar.gz"
+      sha256 "c2d076df7e2441f0eafcc960cf222d2ff803bdf3ab2820423cd583ebafce3505"
     else
-      odie "tokenplace 0.35.0 ships no Intel-mac binary. Build from source: https://github.com/AlexGladkov/tokenplace"
+      odie "tokenplace 0.36.0 ships no Intel-mac binary. Build from source: https://github.com/AlexGladkov/tokenplace"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.35.0/tokenplace-0.35.0-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "0230c3b84047abd91959d046a303af7541d4ef66bc65282d9fed03cae447e8c9"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.36.0/tokenplace-0.36.0-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "93b0f2a834414923c3162298c1f3c15a742bd40504dd6d558bf2d58654fad705"
     else
-      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.35.0/tokenplace-0.35.0-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "f90393f5c019e29ddbde8ee7531c818f1db98aafe05e62d51dd15c1f6449b8af"
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.36.0/tokenplace-0.36.0-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "d87ca68f2f5c245367d3f63edfc179bf019cc1619263794de296294730942ca8"
     end
   end
 
   def install
     bin.install "tokenplace"
+    # Sibling helper binary launched by launchd/systemd. Must live next to
+    # the main CLI so `current_exe()`'s parent dir can locate it.
     bin.install "tp-host-daemon"
   end
 
   def caveats
     <<~EOS
       A second binary `tp-host-daemon` is installed alongside `tokenplace`.
-      It is invoked by launchd / systemd / Task Scheduler when you publish a
-      model via the TUI — do not delete it.
+      It is invoked by launchd / systemd when you publish a model via the
+      TUI — do not delete it.
     EOS
   end
 

@@ -17,7 +17,13 @@ class Tokenplace < Formula
   end
 
   on_linux do
-    odie "tokenplace 0.35.0 ships only darwin-arm64 in this build. Linux follows shortly — pin 0.32.0 or build from source: https://github.com/AlexGladkov/tokenplace"
+    if Hardware::CPU.arm?
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.35.0/tokenplace-0.35.0-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "0230c3b84047abd91959d046a303af7541d4ef66bc65282d9fed03cae447e8c9"
+    else
+      url "https://github.com/AlexGladkov/homebrew-tap/releases/download/tokenplace-v0.35.0/tokenplace-0.35.0-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "f90393f5c019e29ddbde8ee7531c818f1db98aafe05e62d51dd15c1f6449b8af"
+    end
   end
 
   def install

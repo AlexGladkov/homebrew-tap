@@ -1,26 +1,20 @@
 class Monet < Formula
   desc "Personal AgentOS — agents that manage agents (fork of pi.dev)"
   homepage "https://github.com/AlexGladkov/monet"
-  version "0.6.0"
+  version "0.7.0"
   license "MIT"
 
-  url "https://github.com/AlexGladkov/homebrew-tap/releases/download/monet-v0.6.0/monet-0.6.0.tar.gz"
-  sha256 "95320ab2317b3f3de4491f04e3b628eba387a5bd9cf01066eb5e85485383c61e"
+  url "https://github.com/AlexGladkov/homebrew-tap/releases/download/monet-v0.7.0/monet-0.7.0.tar.gz"
+  sha256 "01ea45bc60ec4c726bcb2270647fa370d550407bc821b0d6985466991f691987"
 
   depends_on "node"
 
   def install
-    libexec.install "monet.mjs"
-    libexec.install "pi-assets"
-    (bin/"monet").write <<~SH
-      #!/bin/bash
-      exec "#{Formula["node"].opt_bin}/node" "#{libexec}/monet.mjs" "$@"
-    SH
-    (bin/"monet").chmod 0755
+    system "npm", "install", *Language::Node.std_npm_install_args(libexec)
+    bin.install_symlink Dir["#{libexec}/bin/monet"]
   end
 
   test do
-    output = shell_output("#{bin}/monet --help 2>&1")
-    assert_match "monet", output
+    assert_match "monet", shell_output("#{bin}/monet --help 2>&1")
   end
 end

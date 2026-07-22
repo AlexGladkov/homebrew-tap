@@ -1,11 +1,11 @@
 class Monet < Formula
   desc "Personal AgentOS — agents that manage agents (fork of pi.dev)"
   homepage "https://github.com/AlexGladkov/monet"
-  version "0.8.0"
+  version "0.9.0"
   license "MIT"
 
-  url "https://github.com/AlexGladkov/homebrew-tap/releases/download/monet-v0.8.0/monet-0.8.0.tar.gz"
-  sha256 "28a508c4a64d6715793f59506ab59a95d7a16174fe4dcfd3750685a292ce3b99"
+  url "https://github.com/AlexGladkov/homebrew-tap/releases/download/monet-v0.9.0/monet-0.9.0.tar.gz"
+  sha256 "e3119cf6b1f8026d7bd54aa7c36b90b6c1b93739c83618d570d40ef8bc21267b"
 
   depends_on "node"
 

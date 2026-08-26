@@ -1,11 +1,11 @@
 class Machiavelli < Formula
   desc "Portable corporate-ontology CLI + ethical intrigue advisor"
   homepage "https://github.com/AlexGladkov/machiavelli"
-  version "0.1.0"
+  version "0.1.1"
   license "MIT"
 
-  url "https://github.com/AlexGladkov/machiavelli/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "588028b2630de6971667dad13d84d908bd635d9dd255f9346e5a6686f54adcf4"
+  url "https://github.com/AlexGladkov/machiavelli/archive/refs/tags/v0.1.1.tar.gz"
+  sha256 "11173eeea5367f06c7fb78955d4459370a08174dcf31996a99672c3abfa59e6c"
 
   depends_on "node"
 

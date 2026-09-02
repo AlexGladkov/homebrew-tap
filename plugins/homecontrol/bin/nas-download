@@ -27,6 +27,11 @@ HC_CONFIG="${HOMECONTROL_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/homecontrol/c
 NAS_VOLUME="${NAS_VOLUME:-/volume1}"
 MEDIA_ROOT="${MEDIA_ROOT:-$NAS_VOLUME/data/media}"      # movies/ tv/ music/
 TORRENTS_DIR="${TORRENTS_DIR:-$NAS_VOLUME/data/torrents}"
+# qBittorrent writes from INSIDE its container, where the host volume is remounted
+# (e.g. host /volume1/data → container /data). The save path handed to qBit MUST be the
+# CONTAINER-internal path, not the host path — otherwise qBit gets "Permission denied" on
+# a path it cannot see. TORRENTS_DIR (host) stays for du/space/import; this is for qBit add.
+QBIT_SAVE_PATH="${QBIT_SAVE_PATH:-/data/torrents}"
 SPACE_HEADROOM_GB="${NAS_DOWNLOAD_HEADROOM_GB:-${SPACE_HEADROOM_GB:-20}}"
 
 # reuse the NAS node + keychain credential from nas-connect
@@ -177,7 +182,7 @@ for t in sorted(d,key=lambda x:-x.get('size',0))[:8]:
 acquire() {
   local dl="$1" cat="$2"
   local apikey; apikey="$(nas_sudo "grep -oE '<ApiKey>[a-f0-9]+</ApiKey>' $PROWLARR_APIKEY_PATH | sed -E 's/<[^>]+>//g'")"
-  nas_sudo "$DOCKER_BIN exec prowlarr sh -c 'wget -qO /tmp/mg.torrent \"$dl\" && curl -s -F torrents=@/tmp/mg.torrent -F category=$cat -F savepath=$TORRENTS_DIR http://qbittorrent:8080/api/v2/torrents/add'" >/dev/null
+  nas_sudo "$DOCKER_BIN exec prowlarr sh -c 'wget -qO /tmp/mg.torrent \"$dl\" && curl -s -F torrents=@/tmp/mg.torrent -F category=$cat -F savepath=$QBIT_SAVE_PATH http://qbittorrent:8080/api/v2/torrents/add'" >/dev/null
   # newest torrent in category = ours; force-start + reannounce
   local h
   h="$(pcurl "\"http://qbittorrent:8080/api/v2/torrents/info?category=$cat&sort=added_on&reverse=true&limit=1\"" \
@@ -385,8 +390,21 @@ do_status() {
     pcurl "\"http://qbittorrent:8080/api/v2/torrents/info?category=$c\"" | python3 -c "import sys,json
 d=json.load(sys.stdin)
 act=[t for t in d if not t['state'].endswith('UP') and t['state']!='pausedUP']
+def sz(b):
+    b=b or 0
+    return ('%.1fGB'%(b/1073741824)) if b>=1073741824 else ('%dMB'%(b/1048576))
+def spd(b):
+    b=b or 0
+    return ('%.1fMB/s'%(b/1048576)) if b>=1048576 else ('%dKB/s'%(b/1024))
+def eta(t):
+    e=t.get('eta',0)
+    if t['progress']>=1: return 'done'
+    if not e or e>=8640000: return '~'
+    if e>=3600: return '%dh%02dm'%(e//3600,(e%3600)//60)
+    return '%dm'%(max(1,e//60))
 for t in sorted(act,key=lambda x:-x['progress'])[:20]:
-    print('  %5.1f%% %-11s %dKB/s seed=%d %s'%(t['progress']*100,t['state'],t.get('dlspeed',0)//1024,t.get('num_seeds',0),t['name'][:46]))" 2>/dev/null || true
+    tot=t.get('size',0); dn=int(t.get('progress',0)*tot)
+    print('  %5.1f%% %-11s %-8s eta=%-6s %s/%s seed=%d  %s'%(t['progress']*100,t['state'],spd(t.get('dlspeed',0)),eta(t),sz(dn),sz(tot),t.get('num_seeds',0),t['name'][:42]))" 2>/dev/null || true
   done
   echo "Soulseek (music):" >&2
   SLSKD_K="$(slskd_key)"

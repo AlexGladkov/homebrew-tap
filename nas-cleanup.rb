@@ -5,9 +5,9 @@
 class NasCleanup < Formula
   desc "Free NAS space safely — confirmation-gated deletion with honest reclaimable accounting"
   homepage "https://github.com/AlexGladkov/homecontrol"
-  url "https://github.com/AlexGladkov/homebrew-tap/releases/download/homecontrol-v0.5.0/homecontrol-0.5.0.tar.gz"
-  sha256 "3b5f68d975eec74ae582878285d6ecc6843d9c5f463d03ff995f1c86435f6304"
-  version "0.5.0"
+  url "https://github.com/AlexGladkov/homebrew-tap/releases/download/homecontrol-v0.6.0/homecontrol-0.6.0.tar.gz"
+  sha256 "32ac6f00ead87b99900445e639a2b267d0db866baed0997f01010200e536d4ad"
+  version "0.6.0"
   license "MIT"
 
   depends_on :macos

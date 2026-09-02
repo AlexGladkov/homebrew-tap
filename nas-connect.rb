@@ -6,9 +6,9 @@
 class NasConnect < Formula
   desc "Connect to a home NAS over ssh with a keychain-backed sudo password (homecontrol skill)"
   homepage "https://github.com/AlexGladkov/homecontrol"
-  url "https://github.com/AlexGladkov/homebrew-tap/releases/download/homecontrol-v0.3.0/homecontrol-0.3.0.tar.gz"
-  sha256 "a52c6eb4a9f56458810c3317a80054473326bcdf61e2b6529f72f5373dfa9a5b"
-  version "0.3.0"
+  url "https://github.com/AlexGladkov/homebrew-tap/releases/download/homecontrol-v0.4.0/homecontrol-0.4.0.tar.gz"
+  sha256 "677263733f771f345c355220c96f8f8b2666460a3af03c2b0c3d191ec0b407e1"
+  version "0.4.0"
   license "MIT"
 
   depends_on :macos

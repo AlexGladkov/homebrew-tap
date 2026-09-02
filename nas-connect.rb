@@ -6,7 +6,8 @@
 class NasConnect < Formula
   desc "Connect to the home NAS with keychain-backed sudo (homecontrol skill)"
   homepage "https://github.com/AlexGladkov/homecontrol"
-  url "git@github.com:AlexGladkov/homecontrol.git",
+  url "ssh://git@github.com/AlexGladkov/homecontrol.git",
+      using:    :git,
       tag:      "v0.1.0",
       revision: "11bd03151dff3d66b5fb51fcfd2a1bb059795a45"
   version "0.1.0"

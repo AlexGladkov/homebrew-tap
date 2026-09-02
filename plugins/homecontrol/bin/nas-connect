@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+#
+# nas-connect — homecontrol skill helper: connect to the home NAS, keeping the
+# sudo password in the macOS login keychain (never in argv / shell history / chat).
+#
+# Contract source of truth: docs/spec/{topology,secrets,operations,interface}.
+#   topology.nodes.nas          — node constants below
+#   secrets.keychain.nas-credential — keychain_store / keychain_read
+#   operations.nas.connect-verify   — cmd_connect
+#   interface.skill.nas-connect     — cmd dispatch (setup | connect)
+#
+set -euo pipefail
+
+# ── config — personal infra lives in a local config, NOT in this code ─────────
+# Sourced from $HOMECONTROL_CONFIG or ~/.config/homecontrol/config (KEY=value).
+# Everything below is a generic default; the config (or env) overrides it. Run
+# `nas-connect config` to write it. The real host/user/key live in ~/.ssh/config.
+HC_CONFIG="${HOMECONTROL_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/homecontrol/config}"
+[ -f "$HC_CONFIG" ] && . "$HC_CONFIG"
+
+# ── topology.nodes.nas — node identity (config-driven) ────────────────────────
+NAS_SSH_ALIAS="${NAS_SSH_ALIAS:-nas}"          # ~/.ssh/config Host (keyless)
+NAS_USER="${NAS_USER:-}"                        # display + keychain account; optional
+NAS_HOST="${NAS_HOST:-}"                        # display only; optional
+NAS_HOSTNAME="${NAS_HOSTNAME:-$NAS_SSH_ALIAS}"  # display; defaults to the alias
+
+# ── secrets.keychain.nas-credential — keychain coordinates ────────────────────
+KEYCHAIN_SERVICE="${KEYCHAIN_SERVICE:-homecontrol-nas}"
+KEYCHAIN_ACCOUNT="${KEYCHAIN_ACCOUNT:-${NAS_USER:-nas}}"
+
+DOCKER_BIN="${DOCKER_BIN:-/usr/local/bin/docker}"   # Synology docker path (not in sudo PATH)
+
+# human labels that stay clean when host/user are unset
+NAS_LABEL="$NAS_HOSTNAME"; [ -n "$NAS_HOST" ] && NAS_LABEL="$NAS_HOSTNAME ($NAS_HOST)"
+NAS_WHO="${NAS_USER:+$NAS_USER@}$NAS_HOSTNAME"
+
+die() { printf 'nas-connect: %s\n' "$*" >&2; exit "${2:-1}"; }
+
+# Read the stored sudo password to stdout. Non-zero (77) if absent.
+keychain_read() {
+  security find-generic-password -s "$KEYCHAIN_SERVICE" -a "$KEYCHAIN_ACCOUNT" -w 2>/dev/null \
+    || return 77
+}
+
+# Securely capture the sudo password via a hidden GUI dialog and store it in the
+# keychain. The secret is NEVER placed on any argv: the GUI returns it into a
+# shell var, and it is handed to `security` through its interactive `-w` prompt
+# driven by expect over a pty (not a command argument).
+keychain_store() {
+  command -v osascript >/dev/null || die "osascript not found (macOS only)"
+  command -v expect    >/dev/null || die "expect not found"
+
+  local pw
+  pw="$(osascript \
+        -e "display dialog \"NAS sudo password for ${NAS_WHO}:\" default answer \"\" with hidden answer with title \"homecontrol · nas-connect\" buttons {\"Cancel\",\"Save\"} default button \"Save\"" \
+        -e "text returned of result" 2>/dev/null)" || die "cancelled" 3
+  [ -n "$pw" ] || die "empty password — nothing stored" 3
+
+  # Store without exposing the secret in argv. `security -w` (no value) prompts TWICE
+  # ("password data for new item:" then "retype ...:"); drive BOTH deterministically via
+  # expect (secret via env, not argv). Delete any prior item first so the prompt sequence
+  # is always the fresh two-prompt add — the previous `-U` + loose `exp_continue` regex
+  # was racy and intermittently failed to store.
+  security delete-generic-password -s "$KEYCHAIN_SERVICE" -a "$KEYCHAIN_ACCOUNT" >/dev/null 2>&1 || true
+  SECURITY_PW="$pw" SECURITY_SVC="$KEYCHAIN_SERVICE" SECURITY_ACC="$KEYCHAIN_ACCOUNT" \
+    expect >/dev/null 2>&1 <<'EXP' || { unset SECURITY_PW pw; die "keychain store failed"; }
+log_user 0
+set timeout 15
+set pw  $env(SECURITY_PW)
+set svc $env(SECURITY_SVC)
+set acc $env(SECURITY_ACC)
+spawn security add-generic-password -s $svc -a $acc -w
+expect "password data for new item:"
+send -- "$pw\r"
+expect "retype password for new item:"
+send -- "$pw\r"
+expect eof
+EXP
+  unset SECURITY_PW SECURITY_SVC SECURITY_ACC pw
+  keychain_read >/dev/null || die "stored but cannot read back — keychain acl issue"
+  printf 'Stored NAS credential in keychain (%s / %s).\n' "$KEYCHAIN_SERVICE" "$KEYCHAIN_ACCOUNT"
+}
+
+# Assert the keyless ssh alias reaches the NAS. Non-zero (4) otherwise.
+ssh_alive() {
+  ssh -o BatchMode=yes -o ConnectTimeout=8 "$NAS_SSH_ALIAS" true 2>/dev/null \
+    || return 4
+}
+
+# connect + verify recipe (operations.nas.connect-verify).
+cmd_connect() {
+  ssh_alive || die "NAS unreachable, or key not installed (ssh '$NAS_SSH_ALIAS' failed). Check ~/.ssh/config + that '$NAS_SSH_ALIAS' is keyless." 4
+
+  local pw
+  pw="$(keychain_read)" || die "no credential in keychain — run: nas-connect setup" 2
+
+  # Verify sudo works. Password travels via ssh STDIN into `sudo -S` — never on
+  # any argv (local or remote).
+  local uid
+  uid="$(printf '%s\n' "$pw" | ssh -o BatchMode=yes -o ConnectTimeout=8 "$NAS_SSH_ALIAS" \
+          'sudo -S -p "" id -u' 2>/dev/null || true)"
+  if [ "$uid" != "0" ]; then
+    unset pw
+    die "sudo failed — wrong password? re-run: nas-connect setup" 5
+  fi
+
+  printf 'Connected to %s%s — sudo OK.\n\nLive services:\n' \
+    "$NAS_LABEL" "${NAS_USER:+ as $NAS_USER}"
+  printf '%s\n' "$pw" | ssh -o BatchMode=yes "$NAS_SSH_ALIAS" \
+    "sudo -S -p '' $DOCKER_BIN ps --format '  {{.Names}}\t{{.Status}}'" 2>/dev/null \
+    || printf '  (docker service list unavailable)\n'
+  unset pw
+}
+
+cmd_setup()  { keychain_store; }
+
+# Write the local config (personal infra) — NOT stored in the code. Values from
+# flags (--alias/--user/--host) or, if absent, interactive GUI prompts.
+cmd_config() {
+  local alias="$NAS_SSH_ALIAS" user="$NAS_USER" host="$NAS_HOST"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --alias) alias="$2"; shift 2;;
+      --user)  user="$2";  shift 2;;
+      --host)  host="$2";  shift 2;;
+      *) shift;;
+    esac
+  done
+  if [ -z "$user$host" ] && command -v osascript >/dev/null; then
+    alias="$(osascript -e "text returned of (display dialog \"NAS ssh alias (from ~/.ssh/config):\" default answer \"${alias:-nas}\")" 2>/dev/null || echo "$alias")"
+    user="$(osascript -e "text returned of (display dialog \"NAS ssh user (optional, for label):\" default answer \"$user\")" 2>/dev/null || echo "$user")"
+    host="$(osascript -e "text returned of (display dialog \"NAS host/IP (optional, for label):\" default answer \"$host\")" 2>/dev/null || echo "$host")"
+  fi
+  mkdir -p "$(dirname "$HC_CONFIG")"
+  {
+    echo "# homecontrol config — personal infra (not in the published code)"
+    echo "NAS_SSH_ALIAS=${alias:-nas}"
+    [ -n "$user" ] && echo "NAS_USER=$user"
+    [ -n "$host" ] && echo "NAS_HOST=$host"
+  } > "$HC_CONFIG"
+  printf 'Wrote %s (alias=%s user=%s host=%s).\n' "$HC_CONFIG" "${alias:-nas}" "${user:-–}" "${host:-–}"
+}
+
+usage() {
+  cat >&2 <<USG
+nas-connect — connect to a NAS over ssh, sudo password kept in the macOS keychain
+  target: ${NAS_LABEL}
+
+  nas-connect            connect + verify (ssh keyless, sudo from keychain, list services)
+  nas-connect config     write ~/.config/homecontrol/config (ssh alias / user / host)
+  nas-connect setup      store the NAS sudo password securely in the macOS keychain
+  nas-connect connect    same as no-arg
+  nas-connect -h|--help  this help
+USG
+}
+
+main() {
+  case "${1:-connect}" in
+    connect|"") cmd_connect ;;
+    config)     shift; cmd_config "$@" ;;
+    setup)      cmd_setup ;;
+    -h|--help)  usage ;;
+    *)          usage; exit 64 ;;
+  esac
+}
+
+main "$@"

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "homecontrol",
+  "displayName": "homecontrol — home NAS skills",
+  "version": "0.4.0",
+  "description": "Claude Code skills to run a home NAS: connect (keychain sudo), download media (never avi, 1080p, space-guarded, Soulseek music), and safe confirmation-gated cleanup. Config-driven; personal infra in ~/.config/homecontrol/config.",
+  "author": { "name": "AlexGladkov", "url": "https://github.com/AlexGladkov" },
+  "homepage": "https://github.com/AlexGladkov/homebrew-tap#homecontrol",
+  "repository": "https://github.com/AlexGladkov/homebrew-tap",
+  "license": "MIT",
+  "keywords": ["nas", "jellyfin", "qbittorrent", "media", "synology", "soulseek"]
+}

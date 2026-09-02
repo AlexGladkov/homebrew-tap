@@ -1,0 +1,414 @@
+#!/usr/bin/env bash
+#
+# media-get — homecontrol skill helper: acquire a movie / series / music onto the NAS.
+#   - never avi: rejects MPEG4-ASP/XviD/DivX at selection (they won't direct-play)
+#   - default 1080p (override --quality), Russian dub preferred
+#   - guards NAS free space BEFORE downloading (refuses + lists deletable candidates;
+#     never deletes on its own)
+#   - adds to qBittorrent, watches progress, auto-imports into the Jellyfin library
+#   - music goes through Soulseek (slskd), not torrents
+#
+# Contract source of truth: docs/spec/{topology,operations,interface}.
+#   topology.storage.volumes        — NAS_VOLUME / MEDIA_ROOT / TORRENTS_DIR / free_space
+#   operations.media.select         — select_release
+#   operations.storage.space-guard  — space_guard
+#   operations.media.acquire        — acquire
+#   operations.media.import         — import_release
+#   operations.music.soulseek       — music_acquire
+#   interface.skill.media-get       — main dispatch
+#
+set -euo pipefail
+
+# ── config — personal infra lives in a local config, NOT in this code ─────────
+HC_CONFIG="${HOMECONTROL_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/homecontrol/config}"
+[ -f "$HC_CONFIG" ] && . "$HC_CONFIG"
+
+# ── topology.storage.volumes — NAS storage layout (config-driven defaults) ────
+NAS_VOLUME="${NAS_VOLUME:-/volume1}"
+MEDIA_ROOT="${MEDIA_ROOT:-$NAS_VOLUME/data/media}"      # movies/ tv/ music/
+TORRENTS_DIR="${TORRENTS_DIR:-$NAS_VOLUME/data/torrents}"
+SPACE_HEADROOM_GB="${MEDIA_GET_HEADROOM_GB:-${SPACE_HEADROOM_GB:-20}}"
+
+# reuse the NAS node + keychain credential from nas-connect
+NAS_SSH_ALIAS="${NAS_SSH_ALIAS:-nas}"
+NAS_USER="${NAS_USER:-}"
+KEYCHAIN_SERVICE="${KEYCHAIN_SERVICE:-homecontrol-nas}"
+KEYCHAIN_ACCOUNT="${KEYCHAIN_ACCOUNT:-${NAS_USER:-nas}}"
+
+# docker + service coordinates on the NAS (generic stack defaults, overridable)
+DOCKER_BIN="${DOCKER_BIN:-/usr/local/bin/docker}"
+PROWLARR_APIKEY_PATH="${PROWLARR_APIKEY_PATH:-$NAS_VOLUME/docker/prowlarr/config/config.xml}"
+SLSKD_URL="${SLSKD_URL:-http://slskd:5030}"   # reachable from the prowlarr container network
+
+die() { printf 'media-get: %s\n' "$*" >&2; exit "${2:-1}"; }
+log() { printf '%s\n' "$*" >&2; }
+
+keychain_read() {
+  security find-generic-password -s "$KEYCHAIN_SERVICE" -a "$KEYCHAIN_ACCOUNT" -w 2>/dev/null \
+    || die "no NAS credential in keychain — run: nas-connect setup" 2
+}
+
+# Run a ROOT command on the NAS. The sudo password travels via ssh STDIN into
+# `sudo -S` — never on any argv (local or remote).
+nas_sudo() {
+  local pw; pw="$(keychain_read)"
+  printf '%s\n' "$pw" | ssh -o BatchMode=yes -o ConnectTimeout=10 "$NAS_SSH_ALIAS" \
+    "sudo -S -p '' sh -c $(q "$*")" 2>/dev/null
+}
+q() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }   # shell-quote
+
+# curl inside the prowlarr container (has curl + no-auth access to qbit via the
+# docker-subnet whitelist).
+pcurl() { nas_sudo "$DOCKER_BIN exec prowlarr curl -s $*"; }
+
+# ── topology.storage.volumes — free space (KB) on the data volume ─────────────
+free_space_kb() {
+  ssh -o BatchMode=yes -o ConnectTimeout=8 "$NAS_SSH_ALIAS" \
+    "df -k $NAS_VOLUME 2>/dev/null | tail -1 | awk '{print \$4}'" 2>/dev/null
+}
+
+# ── operations.media.select — search + pick best non-avi 1080p ────────────────
+# args: <query> <quality e.g.1080p> <russian:1|0>
+# emits one JSON line: {title,size,seeders,indexer,downloadUrl,avi_only}  or  NONE
+AVI_RX='(\.avi\b|xvid|divx|dvdrip|vhsrip|satrip|mpeg-?4)'
+select_release() {
+  local query="$1" quality="${2:-1080p}" ru="${3:-1}" season="${4:-}"
+  local apikey ids json
+  apikey="$(nas_sudo "grep -oE '<ApiKey>[a-f0-9]+</ApiKey>' $PROWLARR_APIKEY_PATH | sed -E 's/<[^>]+>//g'")"
+  [ -n "$apikey" ] || die "cannot read Prowlarr apikey" 6
+  ids="2 3 6 7 8 9 10 11 12"     # RU + intl indexers
+  local idargs=""; for i in $ids; do idargs="$idargs&indexerIds=$i"; done
+  local url="http://localhost:9696/api/v1/search?query=$(urlenc "$query")&type=search&limit=200$idargs"
+  json="$(pcurl "--header \"X-Api-Key: $apikey\" \"$url\"")"
+
+  QUALITY="$quality" RU="$ru" AVI_RX="$AVI_RX" QUERY="$query" SEASON="$season" python3 - "$json" <<'PY'
+import sys, json, re, os
+data = []
+try: data = json.loads(sys.argv[1])
+except Exception: pass
+Q = os.environ["QUALITY"]; RU = os.environ["RU"] == "1"
+avirx = re.compile(os.environ["AVI_RX"], re.I)
+# [query-relevance]: title must contain a real query token (>=3 chars, not a bare year),
+# else unrelated spam (e.g. porn with "1080") gets ranked in.
+qtokens = [w for w in re.findall(r"[0-9A-Za-zА-Яа-яЁё]+", os.environ["QUERY"].lower())
+           if len(w) >= 3 and not re.fullmatch(r"(19|20)\d\d", w)]
+def relevant(t):
+    tl = t.lower()
+    return any(w in tl for w in qtokens) if qtokens else True
+# [series-season]: when a season is requested, the release must reference that season
+SEASON = os.environ.get("SEASON", "").strip()
+def season_ok(t):
+    if not SEASON: return True
+    n = int(SEASON); tl = t.lower()
+    pats = [r"\[s0*%d\]" % n, r"\bs0*%d\b" % n, r"сезон\s*0*%d\b" % n,
+            r"season\s*0*%d\b" % n, r"\b0*%d[\s-]*сезон" % n]
+    return any(re.search(p, tl) for p in pats)
+def tier(t):
+    tl = t.lower()
+    if "remux" in tl: return 4
+    if "bluray" in tl or "blu-ray" in tl: return 3
+    if "web-dl" in tl or "webdl" in tl or "web.dl" in tl: return 2
+    if "webrip" in tl or "hdtv" in tl: return 1
+    return 0
+def is_ru(t):
+    tl = t.lower()
+    return any(k in tl for k in ["rus","русск","лостфильм","lostfilm","newstudio","hdrezka",
+                                  "невафильм","кубик","jaskier","гоблин","дубляж","многоголос"])
+cands, avi_only = [], []
+for r in data:
+    t = r.get("title",""); s = r.get("seeders",0) or 0
+    if Q not in t: continue
+    if not relevant(t): continue
+    if not season_ok(t): continue
+    row = dict(title=t, size=r.get("size",0), seeders=s, indexer=r.get("indexer",""),
+               downloadUrl=r.get("downloadUrl") or r.get("guid") or r.get("magnetUrl") or "")
+    if avirx.search(t):
+        avi_only.append(row); continue
+    cands.append(row)
+def rank(r):
+    return (1 if (not RU or is_ru(r["title"])) else 0, tier(r["title"]), r["seeders"])
+alive = [c for c in cands if c["seeders"] > 0]
+pool = alive or cands
+if pool:
+    best = sorted(pool, key=rank, reverse=True)[0]
+    best["avi_only"] = False
+    print(json.dumps(best, ensure_ascii=False)); sys.exit(0)
+# no non-avi pick — is there at least an avi 1080p? signal it
+avi_alive = [c for c in avi_only if c["seeders"] > 0] or avi_only
+if avi_alive:
+    best = sorted(avi_alive, key=rank, reverse=True)[0]
+    best["avi_only"] = True
+    print(json.dumps(best, ensure_ascii=False)); sys.exit(0)
+print("NONE")
+PY
+}
+
+# ── operations.storage.space-guard — free >= size + headroom, else refuse ─────
+# arg: <size_bytes>. exit 0 = enough. exit 9 = insufficient (prints report+candidates).
+space_guard() {
+  local need_bytes="$1"
+  local free_kb; free_kb="$(free_space_kb)"
+  [ -n "$free_kb" ] || die "cannot read NAS free space" 6
+  local need_kb=$(( need_bytes / 1024 ))
+  local head_kb=$(( SPACE_HEADROOM_GB * 1024 * 1024 ))
+  local free_gb=$(( free_kb / 1024 / 1024 ))
+  local need_gb=$(( need_kb / 1024 / 1024 ))
+  if [ "$free_kb" -ge $(( need_kb + head_kb )) ]; then
+    log "space OK: need ~${need_gb}GB (+${SPACE_HEADROOM_GB}GB headroom), free ${free_gb}GB"
+    return 0
+  fi
+  printf 'INSUFFICIENT SPACE: need ~%sGB (+%sGB headroom), free %sGB.\n\nLargest deletable candidates:\n' \
+    "$need_gb" "$SPACE_HEADROOM_GB" "$free_gb" >&2
+  # top torrents by size (deletable) + biggest media dirs
+  pcurl "\"http://qbittorrent:8080/api/v2/torrents/info\"" \
+    | python3 -c "import sys,json
+try: d=json.load(sys.stdin)
+except: d=[]
+for t in sorted(d,key=lambda x:-x.get('size',0))[:8]:
+    print('  torrent  %6.1fGB  hash=%s  %s'%(t.get('size',0)/1e9,t['hash'][:12],t['name'][:52]))" >&2 || true
+  nas_sudo "du -sk $MEDIA_ROOT/movies/* $MEDIA_ROOT/tv/* 2>/dev/null | sort -rn | head -6" \
+    | awk '{printf "  media   %7.1fGB  %s\n",$1/1024/1024,$2}' >&2 || true
+  printf '\nNothing deleted (never auto-deletes). Delete a candidate then retry, or cancel.\n' >&2
+  return 9
+}
+
+# ── operations.media.acquire — add to qBit + detached watcher ─────────────────
+# args: <downloadUrl> <category> ; prints the added torrent hash
+acquire() {
+  local dl="$1" cat="$2"
+  local apikey; apikey="$(nas_sudo "grep -oE '<ApiKey>[a-f0-9]+</ApiKey>' $PROWLARR_APIKEY_PATH | sed -E 's/<[^>]+>//g'")"
+  nas_sudo "$DOCKER_BIN exec prowlarr sh -c 'wget -qO /tmp/mg.torrent \"$dl\" && curl -s -F torrents=@/tmp/mg.torrent -F category=$cat -F savepath=$TORRENTS_DIR http://qbittorrent:8080/api/v2/torrents/add'" >/dev/null
+  # newest torrent in category = ours; force-start + reannounce
+  local h
+  h="$(pcurl "\"http://qbittorrent:8080/api/v2/torrents/info?category=$cat&sort=added_on&reverse=true&limit=1\"" \
+      | python3 -c "import sys,json;d=json.load(sys.stdin);print(d[0]['hash'] if d else '')")"
+  [ -n "$h" ] || die "torrent added but hash not found" 7
+  pcurl "--data 'hashes=$h' http://qbittorrent:8080/api/v2/torrents/topPrio" >/dev/null 2>&1 || true
+  pcurl "--data 'hashes=$h' -d value=true http://qbittorrent:8080/api/v2/torrents/setForceStart" >/dev/null 2>&1 || true
+  pcurl "--data 'hashes=$h' http://qbittorrent:8080/api/v2/torrents/reannounce" >/dev/null 2>&1 || true
+  printf '%s\n' "$h"
+}
+
+# progress snapshot for one hash (human line)
+progress() {
+  local h="$1"
+  pcurl "\"http://qbittorrent:8080/api/v2/torrents/info?hashes=$h\"" | python3 -c "import sys,json
+d=json.load(sys.stdin)
+if not d: print('  (torrent gone)'); raise SystemExit
+t=d[0]; eta=t.get('eta',0); e='%dh%dm'%(eta//3600,(eta%3600)//60) if eta and eta<8640000 else '∞'
+print('  %5.1f%%  %-11s  %d KB/s  seeds=%d/%s  eta=%s  %s'%(t['progress']*100,t['state'],t.get('dlspeed',0)//1024,t.get('num_seeds',0),t.get('num_complete','?'),e,t['name'][:48]))"
+}
+
+# ── operations.media.import — hardlink into library + Jellyfin scan ───────────
+# args: <hash> <type movie|series>
+import_release() {
+  local h="$1" typ="$2"
+  local sub; case "$typ" in movie) sub=movies;; series) sub=tv;; *) sub=movies;; esac
+  # content path of the torrent
+  local cpath
+  cpath="$(pcurl "\"http://qbittorrent:8080/api/v2/torrents/info?hashes=$h\"" \
+      | python3 -c "import sys,json;d=json.load(sys.stdin);print(d[0]['content_path'] if d else '')")"
+  [ -n "$cpath" ] || { log "import: content path unknown"; return 1; }
+  local name; name="$(basename "$cpath")"
+  # hardlink the tree into the media library (same volume → instant, no copy)
+  nas_sudo "mkdir -p '$MEDIA_ROOT/$sub' && cp -al '$cpath' '$MEDIA_ROOT/$sub/$name' 2>/dev/null || cp -aln '$cpath'/. '$MEDIA_ROOT/$sub/$name/' 2>/dev/null || true"
+  jellyfin_scan
+  printf 'imported → %s/%s\n' "$MEDIA_ROOT/$sub" "$name"
+}
+
+jellyfin_scan() {
+  local tok
+  tok="$(nas_sudo "sqlite3 $NAS_VOLUME/docker/jellyfin/config/data/data/jellyfin.db 'SELECT AccessToken FROM ApiKeys LIMIT 1;' 2>/dev/null")"
+  [ -n "$tok" ] && nas_sudo "curl -s -X POST -H 'X-Emby-Token: $tok' http://localhost:8096/Library/Refresh >/dev/null" || true
+}
+
+# ── operations.music.soulseek — music via slskd (not torrents) ────────────────
+# slskd API key (soularr, readwrite) read from slskd.yml at runtime (48-hex; the only 40+hex there)
+slskd_key() { nas_sudo "grep -oE '[0-9a-f]{40,}' $NAS_VOLUME/docker/slskd/slskd.yml | head -1"; }
+# authenticated slskd curl (runs in the prowlarr container, same docker network)
+scurl() { nas_sudo "$DOCKER_BIN exec prowlarr curl -s -H \"X-API-Key: $SLSKD_K\" $*"; }
+
+# args: <query> <mode plan|get>
+music_acquire() {
+  local query="$1" mode="${2:-plan}"
+  SLSKD_K="$(slskd_key)"; [ -n "$SLSKD_K" ] || die "cannot read slskd api key from slskd.yml" 6
+  # reachability + Soulseek logged in
+  local st
+  st="$(scurl "http://slskd:5030/api/v0/application" | python3 -c "import sys,json
+try: print(json.load(sys.stdin).get('server',{}).get('state',''))
+except: print('')" 2>/dev/null)"
+  case "$st" in
+    *LoggedIn*) : ;;
+    "") die "slskd not reachable — is slskd up?" 8 ;;
+    *) die "slskd not logged into Soulseek (state='$st') — music unavailable" 8 ;;
+  esac
+  log "slskd $st — searching Soulseek: \"$query\"…"
+  # search (searchText body via python to dodge quoting)
+  local body sid
+  body="$(python3 -c "import json,sys;print(json.dumps({'searchText':sys.argv[1]}))" "$query")"
+  local b64q; b64q="$(printf '%s' "$body" | base64 | tr -d '\n')"
+  sid="$(nas_sudo "$DOCKER_BIN exec prowlarr sh -c 'echo $b64q | base64 -d > /tmp/mgq.json && curl -s -X POST -H \"X-API-Key: $SLSKD_K\" -H \"Content-Type: application/json\" -d @/tmp/mgq.json http://slskd:5030/api/v0/searches'" | python3 -c "import sys,json;print(json.load(sys.stdin).get('id',''))" 2>/dev/null)"
+  [ -n "$sid" ] || die "slskd search failed" 8
+  # poll until complete (~max 60s)
+  local i ic=""
+  for i in $(seq 1 12); do
+    ic="$(scurl "http://slskd:5030/api/v0/searches/$sid" | python3 -c "import sys,json;print(json.load(sys.stdin).get('isComplete'))" 2>/dev/null)"
+    [ "$ic" = "True" ] && break
+    sleep 5
+  done
+  # pick best user + audio files
+  local picked
+  picked="$(scurl "http://slskd:5030/api/v0/searches/$sid/responses" | python3 -c '
+import sys, json
+try: d = json.load(sys.stdin)
+except: d = []
+AUD = (".flac",".mp3",".m4a",".wav",".alac",".ogg")
+def audio(r): return [f for f in r.get("files",[]) if str(f.get("filename","")).lower().endswith(AUD) and not f.get("isLocked")]
+def score(r):
+    a = audio(r); flac = sum(1 for f in a if str(f["filename"]).lower().endswith(".flac"))
+    return (r.get("hasFreeUploadSlot",False), flac, len(a), r.get("uploadSpeed",0))
+cands = [r for r in d if audio(r)]
+if not cands: sys.exit(0)
+best = sorted(cands, key=score, reverse=True)[0]
+files = [{"filename": f["filename"], "size": f.get("size",0)} for f in audio(best)]
+print(best.get("username",""))
+print(json.dumps(files, ensure_ascii=False))
+')"
+  [ -n "$picked" ] || die "no downloadable audio on Soulseek for \"$query\"" 3
+  local user filesjson n
+  user="$(printf '%s\n' "$picked" | sed -n 1p)"
+  filesjson="$(printf '%s\n' "$picked" | sed -n 2p)"
+  n="$(printf '%s' "$filesjson" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))")"
+  log "best source: $user ($n audio files, FLAC-preferred)"
+  if [ "$mode" = plan ]; then
+    log "music pick: user=$user, $n audio files (FLAC-preferred)."
+    log "ready — run: media-get get \"$query\" --type music"
+    return 0
+  fi
+  # enqueue download — body (Windows-path backslashes) passed as base64 in the command,
+  # decoded inside the container (ssh stdin is taken by the sudo password).
+  local b64; b64="$(printf '%s' "$filesjson" | base64 | tr -d '\n')"
+  nas_sudo "$DOCKER_BIN exec prowlarr sh -c 'echo $b64 | base64 -d > /tmp/mgdl.json && curl -s -X POST -H \"X-API-Key: $SLSKD_K\" -H \"Content-Type: application/json\" -d @/tmp/mgdl.json http://slskd:5030/api/v0/transfers/downloads/$user'" >/dev/null 2>&1
+  printf 'Enqueued %s files from %s → /data/soulseek/complete → soularr/Lidarr import into %s/music.\n' "$n" "$user" "$MEDIA_ROOT"
+  printf 'Progress: media-get status\n'
+}
+
+# ── interface.skill.media-get — dispatch ──────────────────────────────────────
+detect_type() {  # crude type auto-detect from query
+  local ql; ql="$(printf '%s' "$1" | tr 'A-Z' 'a-z')"
+  case "$ql" in
+    *season*|*сезон*|*s0[0-9]*|*series*|*сериал*) echo series ;;
+    *album*|*discography*|*дискограф*|*альбом*)    echo music ;;
+    *) echo movie ;;
+  esac
+}
+cat_for() { case "$1" in movie) echo radarr;; series) echo tv-sonarr;; music) echo lidarr;; esac; }
+urlenc() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$1"; }
+
+usage() {
+  cat >&2 <<USG
+media-get — download a movie / series / music onto the NAS (never avi, default 1080p)
+
+  media-get plan  "<query>" [--type movie|series|music] [--quality 1080p|2160p|720p]
+        select best non-avi release + check NAS space (no download, safe)
+  media-get get   "<query>" [--type ...] [--quality ...] [--transcode-avi] [--free <hash>]
+        plan + download + watch progress + auto-import into the Jellyfin library
+  media-get status
+        progress of active media-get downloads
+
+Notes:
+  - refuses if NAS free space < release size + ${SPACE_HEADROOM_GB}GB; lists deletable candidates (never deletes).
+  - avi-only result: reports it; with --transcode-avi downloads + transcodes to MP4.
+  - music routes through Soulseek (slskd), not torrents.
+USG
+}
+
+# arg parse
+CMD="${1:-}"; shift || true
+QUERY=""; TYPE=""; QUALITY="1080p"; TRANSCODE=0; FREE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --type) TYPE="$2"; shift 2;;
+    --quality) QUALITY="$2"; shift 2;;
+    --transcode-avi) TRANSCODE=1; shift;;
+    --free) FREE="$2"; shift 2;;
+    -h|--help) usage; exit 0;;
+    *) [ -z "$QUERY" ] && QUERY="$1"; shift;;
+  esac
+done
+
+do_plan() {
+  [ -n "$QUERY" ] || die "need a query" 64
+  [ -n "$TYPE" ] || TYPE="$(detect_type "$QUERY")"
+  log "type=$TYPE quality=$QUALITY query=\"$QUERY\""
+  if [ "$TYPE" = music ]; then music_acquire "$QUERY"; return; fi
+  # series: pull the season number and search the SHOW (season noise removed), then
+  # constrain the pick to that season — raw "…N сезон" queries miss [S0N] packs otherwise.
+  local season="" searchq="$QUERY"
+  if [ "$TYPE" = series ]; then
+    season="$(QUERY="$QUERY" python3 -c "import os,re;m=re.search(r'(?:сезон|season)\s*(\d{1,2})|(\d{1,2})\s*(?:сезон|season)|\bs(\d{1,2})\b',os.environ['QUERY'],re.I);print(next((g for g in (m.groups() if m else []) if g),''))")"
+    searchq="$(QUERY="$QUERY" python3 -c "import os,re;q=re.sub(r'((?:сезон|season)\s*\d{1,2}|\d{1,2}\s*(?:сезон|season)|\bs\d{1,2}\b)','',os.environ['QUERY'],flags=re.I);print(re.sub(r'\s+',' ',q).strip())")"
+  fi
+  local rel; rel="$(select_release "$searchq" "$QUALITY" 1 "$season")"
+  [ "$rel" != "NONE" ] || die "no $QUALITY release found for \"$QUERY\"" 3
+  printf '%s' "$rel" | python3 -c "import sys,json;r=json.load(sys.stdin);print('pick: seed=%d %.1fGB [%s] %s%s'%(r['seeders'],r['size']/1e9,r['indexer'],r['title'][:70],'  ⚠ AVI-ONLY (use --transcode-avi)' if r.get('avi_only') else ''))" >&2
+  local size; size="$(printf '%s' "$rel" | python3 -c "import sys,json;print(json.load(sys.stdin)['size'])")"
+  space_guard "$size" || return 9
+  log "ready — run: media-get get \"$QUERY\""
+  printf '%s\n' "$rel"
+}
+
+do_get() {
+  [ -n "$QUERY" ] || die "need a query" 64
+  [ -n "$TYPE" ] || TYPE="$(detect_type "$QUERY")"
+  # music: enqueue the Soulseek download directly (no torrent/space path)
+  if [ "$TYPE" = music ]; then music_acquire "$QUERY" get; return; fi
+  local rel; rel="$(do_plan)" || return $?
+  local avi; avi="$(printf '%s' "$rel" | python3 -c "import sys,json;print('1' if json.load(sys.stdin).get('avi_only') else '0')")"
+  if [ "$avi" = "1" ] && [ "$TRANSCODE" != "1" ]; then
+    die "only an avi release exists — re-run with --transcode-avi to download + transcode to MP4" 10
+  fi
+  local dl; dl="$(printf '%s' "$rel" | python3 -c "import sys,json;print(json.load(sys.stdin)['downloadUrl'])")"
+  local cat; cat="$(cat_for "$TYPE")"
+  local h; h="$(acquire "$dl" "$cat")"
+  log "added ($cat), hash=$h — watching…"
+  # detached watcher on the NAS side is overkill here; foreground poll a few times,
+  # the skill re-invokes 'status' for long tails.
+  progress "$h"
+  printf 'started %s [%s] hash=%s. Use: media-get status\n' "$TYPE" "$cat" "$h"
+  [ "$avi" = "1" ] && printf '(avi → will transcode to MP4 after download)\n'
+}
+
+do_status() {
+  echo "Torrents (movie/series):" >&2
+  for c in radarr tv-sonarr lidarr; do
+    pcurl "\"http://qbittorrent:8080/api/v2/torrents/info?category=$c\"" | python3 -c "import sys,json
+d=json.load(sys.stdin)
+act=[t for t in d if not t['state'].endswith('UP') and t['state']!='pausedUP']
+for t in sorted(act,key=lambda x:-x['progress'])[:20]:
+    print('  %5.1f%% %-11s %dKB/s seed=%d %s'%(t['progress']*100,t['state'],t.get('dlspeed',0)//1024,t.get('num_seeds',0),t['name'][:46]))" 2>/dev/null || true
+  done
+  echo "Soulseek (music):" >&2
+  SLSKD_K="$(slskd_key)"
+  [ -n "$SLSKD_K" ] && scurl "http://slskd:5030/api/v0/transfers/downloads" | python3 -c "import sys,json
+try: d=json.load(sys.stdin)
+except: d=[]
+rows=[]
+for u in d:
+    for dir in u.get('directories',[]):
+        for f in dir.get('files',[]):
+            st=f.get('state','');
+            if 'Completed' in st and 'Succeeded' not in st: pass
+            pct=(f.get('bytesTransferred',0)/f.get('size',1)*100) if f.get('size') else 0
+            rows.append('  %5.1f%% %-22s %s'%(pct,st,(f.get('filename','').split(chr(92))[-1])[:46]))
+for r in rows[:20]: print(r)
+if not rows: print('  (no active Soulseek transfers)')" 2>/dev/null || true
+}
+
+case "$CMD" in
+  plan)   do_plan >/dev/null ;;
+  get)    do_get ;;
+  status) do_status ;;
+  -h|--help|"") usage ;;
+  *) usage; exit 64 ;;
+esac

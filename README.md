@@ -1,31 +1,40 @@
-# AlexGladkov Homebrew Tap
+# AlexGladkov Claude Code plugins + Homebrew tap
 
-Homebrew formulae for AlexGladkov projects.
-
-```bash
-brew tap AlexGladkov/tap
-```
-
-Formulae are code, so recent Homebrew requires trusting the tap once:
-```bash
-brew trust AlexGladkov/tap
-```
-
----
+This repo is **both** a Claude Code plugin marketplace and a Homebrew tap.
 
 ## homecontrol — Claude Code skills for a home NAS
 
-Spec-driven Claude Code skills to run your home NAS without re-entering context. Secrets in
-the macOS keychain; personal infra in a local config, never in the code.
+Skills to run your home NAS from Claude Code without re-entering context. Secrets in the
+macOS keychain; personal infra in a local config (`~/.config/homecontrol/config`), never in
+the code.
 
-| Formula | Skill |
-|---------|-------|
+| Skill | What it does |
+|-------|--------------|
 | `nas-connect` | Connect to the NAS over ssh, verify sudo, list running services. |
 | `media-get` | Download movie/series/music — never avi, 1080p, free-space guard, auto-import, music via Soulseek. |
-| `nas-cleanup` | Free space safely — honest reclaimable accounting, deletes only what you explicitly pick. |
+| `nas-cleanup` | Free space safely — honest reclaimable accounting; deletes only what you explicitly pick. |
 
-### Prerequisites
-- Homebrew (macOS).
+---
+
+## Install as a Claude Code plugin (recommended)
+
+In Claude Code:
+```
+/plugin marketplace add AlexGladkov/homebrew-tap
+/plugin install homecontrol@alexgladkov
+```
+That's it — the three skills register automatically (invoke as `/homecontrol:nas-connect`,
+`/homecontrol:media-get`, `/homecontrol:nas-cleanup`, or just ask in natural language). The
+bundled `nas-connect` / `media-get` commands are added to PATH while the plugin is enabled.
+
+Manage:
+```
+/plugin list
+/plugin uninstall homecontrol@alexgladkov
+/plugin marketplace update alexgladkov     # after a new version
+```
+
+### Prerequisites (runtime)
 - Keyless SSH to your NAS via a `Host` entry in `~/.ssh/config`:
   ```
   Host nas
@@ -35,36 +44,31 @@ the macOS keychain; personal infra in a local config, never in the code.
   ```
   `ssh nas true` must connect with no password prompt.
 
-### Install
-```bash
-brew trust AlexGladkov/tap                       # once
-brew install AlexGladkov/tap/nas-connect \
-             AlexGladkov/tap/media-get \
-             AlexGladkov/tap/nas-cleanup
-
-# register the skills with Claude Code:
-mkdir -p ~/.claude/skills
-for s in nas-connect media-get nas-cleanup; do
-  ln -sfn "$(brew --prefix)/opt/$s/share/$s/$s" ~/.claude/skills/$s
-done
-```
-
-### Configure
+### First-time config
 ```bash
 nas-connect config     # ssh alias / user / host → ~/.config/homecontrol/config
 nas-connect setup      # NAS sudo password → macOS keychain (hidden dialog)
 nas-connect            # connect + verify + list services
 ```
 
-### Use
+---
+
+## Install as standalone CLIs (Homebrew, optional)
+
+If you want the `nas-connect` / `media-get` commands without the plugin:
+```bash
+brew trust AlexGladkov/tap
+brew install AlexGladkov/tap/nas-connect AlexGladkov/tap/media-get AlexGladkov/tap/nas-cleanup
+mkdir -p ~/.claude/skills
+for s in nas-connect media-get nas-cleanup; do
+  ln -sfn "$(brew --prefix)/opt/$s/share/$s/$s" ~/.claude/skills/$s
+done
+```
+
+## Use
 ```bash
 media-get plan "Dune 2021"                    # pick a release + check space (no download)
 media-get get  "The Bear season 3"            # download + auto-import into Jellyfin
 media-get get  "Daft Punk Discovery" --type music
-# nas-cleanup is an LLM-driven skill — ask Claude to "free space on the NAS".
-```
-
-### Update
-```bash
-brew update && brew upgrade nas-connect media-get nas-cleanup
+# nas-cleanup is LLM-driven — ask Claude to "free space on the NAS".
 ```

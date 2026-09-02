@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-marketplace.json",
+  "name": "alexgladkov",
+  "owner": { "name": "AlexGladkov", "url": "https://github.com/AlexGladkov" },
+  "description": "AlexGladkov Claude Code plugins",
+  "version": "1.0.0",
+  "plugins": [
+    {
+      "name": "homecontrol",
+      "source": "./plugins/homecontrol",
+      "displayName": "homecontrol — home NAS skills",
+      "description": "nas-connect / media-get / nas-cleanup skills for a home NAS.",
+      "version": "0.4.0",
+      "license": "MIT"
+    }
+  ],
+  "metadata": { "pluginRoot": "./plugins" }
+}

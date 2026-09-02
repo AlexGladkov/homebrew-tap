@@ -7,9 +7,9 @@ class MediaGet < Formula
   homepage "https://github.com/AlexGladkov/homecontrol"
   url "ssh://git@github.com/AlexGladkov/homecontrol.git",
       using:    :git,
-      tag:      "v0.2.0",
-      revision: "b6173bdfc288b145998a1f961ab35c3f19c6c2c7"
-  version "0.2.0"
+      tag:      "v0.2.1",
+      revision: "f9d70578074a067f9a50c5018bbdd216be59ea4e"
+  version "0.2.1"
   license "MIT"
 
   depends_on :macos

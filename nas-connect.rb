@@ -1,16 +1,14 @@
 # typed: false
 # frozen_string_literal: true
 
-# homecontrol · nas-connect — installs from the PRIVATE AlexGladkov/homecontrol repo
-# via git+ssh (needs your GitHub ssh key; not installable by others by design).
+# homecontrol · nas-connect — installs from a PUBLIC generic release tarball (no ssh needed).
+# Personal NAS config lives in ~/.config/homecontrol/config (nas-connect config).
 class NasConnect < Formula
-  desc "Connect to the home NAS with keychain-backed sudo (homecontrol skill)"
+  desc "Connect to a home NAS over ssh with a keychain-backed sudo password (homecontrol skill)"
   homepage "https://github.com/AlexGladkov/homecontrol"
-  url "ssh://git@github.com/AlexGladkov/homecontrol.git",
-      using:    :git,
-      tag:      "v0.2.0",
-      revision: "b6173bdfc288b145998a1f961ab35c3f19c6c2c7"
-  version "0.2.0"
+  url "https://github.com/AlexGladkov/homebrew-tap/releases/download/homecontrol-v0.3.0/homecontrol-0.3.0.tar.gz"
+  sha256 "a52c6eb4a9f56458810c3317a80054473326bcdf61e2b6529f72f5373dfa9a5b"
+  version "0.3.0"
   license "MIT"
 
   depends_on :macos
@@ -26,9 +24,10 @@ class NasConnect < Formula
         mkdir -p ~/.claude/skills
         ln -sfn #{opt_pkgshare}/nas-connect ~/.claude/skills/nas-connect
 
-      Then:
-        nas-connect setup   # store NAS sudo password in the macOS keychain (secure GUI)
-        nas-connect         # connect + verify + list live services
+      Configure + store the NAS password:
+        nas-connect config    # ssh alias / user / host → ~/.config/homecontrol/config
+        nas-connect setup     # NAS sudo password → macOS keychain (hidden dialog)
+        nas-connect           # connect + verify + list services
     EOS
   end
 

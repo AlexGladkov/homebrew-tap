@@ -1,6 +1,6 @@
 ---
 name: nas-cleanup
-description: Free space on the home NAS by finding and (only on explicit user confirmation) deleting large or junk media — big torrents, watched items, samples/rar junk, duplicates. Shows candidates with sizes, asks what to remove, deletes the chosen ones, reports space freed. NEVER deletes without the user explicitly picking. Use when the user says "освободи место", "почисти nas", "удали что-нибудь", "free space", "cleanup", "delete", or media-get reported insufficient space.
+description: Free space on the home NAS by finding and (only on explicit user confirmation) deleting large or junk media — big torrents, watched items, samples/rar junk, duplicates. Shows candidates with sizes, asks what to remove, deletes the chosen ones, reports space freed. NEVER deletes without the user explicitly picking. Use when the user says "освободи место", "почисти nas", "удали что-нибудь", "free space", "cleanup", "delete", or nas-download reported insufficient space.
 ---
 
 # nas-cleanup
@@ -60,7 +60,7 @@ Do NOT print `$PW`.
 5. **Delete only the chosen items:**
    - torrent + its files: `nas_sudo "/usr/local/bin/docker exec prowlarr curl -s --data 'hashes=<HASH>' -d deleteFiles=true http://qbittorrent:8080/api/v2/torrents/delete"`.
    - a media file/dir not in a torrent: `nas_sudo "rm -rf '<absolute-path>'"` — only paths you showed and the user picked.
-   - then trigger a Jellyfin library scan (see the media-get import step) so removed items disappear.
+   - then trigger a Jellyfin library scan (see the nas-download import step) so removed items disappear.
 
 6. **Report:** `df -k` again → **freed = before − after** (ground truth). If you removed a
    dead-entry or hardlinked item and `df` barely moved, say so honestly ("removed N dead

@@ -1,19 +1,19 @@
 ---
-name: media-get
-description: Download a movie, series, or music onto the home NAS — never avi, default 1080p, Russian dub preferred. Checks NAS free space first (refuses + lists what to delete if short, never deletes on its own), adds to qBittorrent, shows progress, and auto-imports into Jellyfin. Music routes through Soulseek. Use when the user says "скачай фильм/сериал/музыку", "download <movie/show>", "/media-get", or wants something added to the NAS media library.
+name: nas-download
+description: Download a movie, series, or music onto the home NAS — never avi, default 1080p, Russian dub preferred. Checks NAS free space first (refuses + lists what to delete if short, never deletes on its own), adds to qBittorrent, shows progress, and auto-imports into Jellyfin. Music routes through Soulseek. Use when the user says "скачай фильм/сериал/музыку", "download <movie/show>", "/nas-download", or wants something added to the NAS media library.
 ---
 
-# media-get
+# nas-download
 
 Acquires media onto the NAS with the pick policy (non-avi, 1080p default, Russian-preferred),
-a free-space guard, progress, and auto-import. Helper: `bin/media-get.sh` (installed as
-`media-get` on PATH).
+a free-space guard, progress, and auto-import. Helper: `bin/nas-download.sh` (installed as
+`nas-download` on PATH).
 
 ## Flow
 
 1. **Plan first (safe, no download):**
    ```bash
-   media-get plan "The Bear season 3" --type series
+   nas-download plan "The Bear season 3" --type series
    ```
    Prints the chosen release (seeders, size, indexer) and the space verdict.
 
@@ -26,14 +26,14 @@ a free-space guard, progress, and auto-import. Helper: `bin/media-get.sh` (insta
 
 4. **Download + import:**
    ```bash
-   media-get get "The Bear season 3" --type series
+   nas-download get "The Bear season 3" --type series
    ```
    Adds to qBittorrent (force-started), prints initial progress, then auto-imports into the
    Jellyfin library on completion.
 
 5. **Progress of active downloads:**
    ```bash
-   media-get status
+   nas-download status
    ```
 
 ## Options

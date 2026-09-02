@@ -11,7 +11,7 @@ the code.
 | Skill | What it does |
 |-------|--------------|
 | `nas-connect` | Connect to the NAS over ssh, verify sudo, list running services. |
-| `media-get` | Download movie/series/music — never avi, 1080p, free-space guard, auto-import, music via Soulseek. |
+| `nas-download` | Download movie/series/music — never avi, 1080p, free-space guard, auto-import, music via Soulseek. |
 | `nas-cleanup` | Free space safely — honest reclaimable accounting; deletes only what you explicitly pick. |
 
 ---
@@ -24,8 +24,8 @@ In Claude Code:
 /plugin install homecontrol@alexgladkov
 ```
 That's it — the three skills register automatically (invoke as `/homecontrol:nas-connect`,
-`/homecontrol:media-get`, `/homecontrol:nas-cleanup`, or just ask in natural language). The
-bundled `nas-connect` / `media-get` commands are added to PATH while the plugin is enabled.
+`/homecontrol:nas-download`, `/homecontrol:nas-cleanup`, or just ask in natural language). The
+bundled `nas-connect` / `nas-download` commands are added to PATH while the plugin is enabled.
 
 Manage:
 ```
@@ -55,20 +55,20 @@ nas-connect            # connect + verify + list services
 
 ## Install as standalone CLIs (Homebrew, optional)
 
-If you want the `nas-connect` / `media-get` commands without the plugin:
+If you want the `nas-connect` / `nas-download` commands without the plugin:
 ```bash
 brew trust AlexGladkov/tap
-brew install AlexGladkov/tap/nas-connect AlexGladkov/tap/media-get AlexGladkov/tap/nas-cleanup
+brew install AlexGladkov/tap/nas-connect AlexGladkov/tap/nas-download AlexGladkov/tap/nas-cleanup
 mkdir -p ~/.claude/skills
-for s in nas-connect media-get nas-cleanup; do
+for s in nas-connect nas-download nas-cleanup; do
   ln -sfn "$(brew --prefix)/opt/$s/share/$s/$s" ~/.claude/skills/$s
 done
 ```
 
 ## Use
 ```bash
-media-get plan "Dune 2021"                    # pick a release + check space (no download)
-media-get get  "The Bear season 3"            # download + auto-import into Jellyfin
-media-get get  "Daft Punk Discovery" --type music
+nas-download plan "Dune 2021"                    # pick a release + check space (no download)
+nas-download get  "The Bear season 3"            # download + auto-import into Jellyfin
+nas-download get  "Daft Punk Discovery" --type music
 # nas-cleanup is LLM-driven — ask Claude to "free space on the NAS".
 ```

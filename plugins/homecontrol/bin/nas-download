@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# media-get — homecontrol skill helper: acquire a movie / series / music onto the NAS.
+# nas-download — homecontrol skill helper: acquire a movie / series / music onto the NAS.
 #   - never avi: rejects MPEG4-ASP/XviD/DivX at selection (they won't direct-play)
 #   - default 1080p (override --quality), Russian dub preferred
 #   - guards NAS free space BEFORE downloading (refuses + lists deletable candidates;
@@ -15,7 +15,7 @@
 #   operations.media.acquire        — acquire
 #   operations.media.import         — import_release
 #   operations.music.soulseek       — music_acquire
-#   interface.skill.media-get       — main dispatch
+#   interface.skill.nas-download       — main dispatch
 #
 set -euo pipefail
 
@@ -27,7 +27,7 @@ HC_CONFIG="${HOMECONTROL_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/homecontrol/c
 NAS_VOLUME="${NAS_VOLUME:-/volume1}"
 MEDIA_ROOT="${MEDIA_ROOT:-$NAS_VOLUME/data/media}"      # movies/ tv/ music/
 TORRENTS_DIR="${TORRENTS_DIR:-$NAS_VOLUME/data/torrents}"
-SPACE_HEADROOM_GB="${MEDIA_GET_HEADROOM_GB:-${SPACE_HEADROOM_GB:-20}}"
+SPACE_HEADROOM_GB="${NAS_DOWNLOAD_HEADROOM_GB:-${SPACE_HEADROOM_GB:-20}}"
 
 # reuse the NAS node + keychain credential from nas-connect
 NAS_SSH_ALIAS="${NAS_SSH_ALIAS:-nas}"
@@ -40,7 +40,7 @@ DOCKER_BIN="${DOCKER_BIN:-/usr/local/bin/docker}"
 PROWLARR_APIKEY_PATH="${PROWLARR_APIKEY_PATH:-$NAS_VOLUME/docker/prowlarr/config/config.xml}"
 SLSKD_URL="${SLSKD_URL:-http://slskd:5030}"   # reachable from the prowlarr container network
 
-die() { printf 'media-get: %s\n' "$*" >&2; exit "${2:-1}"; }
+die() { printf 'nas-download: %s\n' "$*" >&2; exit "${2:-1}"; }
 log() { printf '%s\n' "$*" >&2; }
 
 keychain_read() {
@@ -282,7 +282,7 @@ print(json.dumps(files, ensure_ascii=False))
   log "best source: $user ($n audio files, FLAC-preferred)"
   if [ "$mode" = plan ]; then
     log "music pick: user=$user, $n audio files (FLAC-preferred)."
-    log "ready — run: media-get get \"$query\" --type music"
+    log "ready — run: nas-download get \"$query\" --type music"
     return 0
   fi
   # enqueue download — body (Windows-path backslashes) passed as base64 in the command,
@@ -290,10 +290,10 @@ print(json.dumps(files, ensure_ascii=False))
   local b64; b64="$(printf '%s' "$filesjson" | base64 | tr -d '\n')"
   nas_sudo "$DOCKER_BIN exec prowlarr sh -c 'echo $b64 | base64 -d > /tmp/mgdl.json && curl -s -X POST -H \"X-API-Key: $SLSKD_K\" -H \"Content-Type: application/json\" -d @/tmp/mgdl.json http://slskd:5030/api/v0/transfers/downloads/$user'" >/dev/null 2>&1
   printf 'Enqueued %s files from %s → /data/soulseek/complete → soularr/Lidarr import into %s/music.\n' "$n" "$user" "$MEDIA_ROOT"
-  printf 'Progress: media-get status\n'
+  printf 'Progress: nas-download status\n'
 }
 
-# ── interface.skill.media-get — dispatch ──────────────────────────────────────
+# ── interface.skill.nas-download — dispatch ──────────────────────────────────────
 detect_type() {  # crude type auto-detect from query
   local ql; ql="$(printf '%s' "$1" | tr 'A-Z' 'a-z')"
   case "$ql" in
@@ -307,14 +307,14 @@ urlenc() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv
 
 usage() {
   cat >&2 <<USG
-media-get — download a movie / series / music onto the NAS (never avi, default 1080p)
+nas-download — download a movie / series / music onto the NAS (never avi, default 1080p)
 
-  media-get plan  "<query>" [--type movie|series|music] [--quality 1080p|2160p|720p]
+  nas-download plan  "<query>" [--type movie|series|music] [--quality 1080p|2160p|720p]
         select best non-avi release + check NAS space (no download, safe)
-  media-get get   "<query>" [--type ...] [--quality ...] [--transcode-avi] [--free <hash>]
+  nas-download get   "<query>" [--type ...] [--quality ...] [--transcode-avi] [--free <hash>]
         plan + download + watch progress + auto-import into the Jellyfin library
-  media-get status
-        progress of active media-get downloads
+  nas-download status
+        progress of active nas-download downloads
 
 Notes:
   - refuses if NAS free space < release size + ${SPACE_HEADROOM_GB}GB; lists deletable candidates (never deletes).
@@ -354,7 +354,7 @@ do_plan() {
   printf '%s' "$rel" | python3 -c "import sys,json;r=json.load(sys.stdin);print('pick: seed=%d %.1fGB [%s] %s%s'%(r['seeders'],r['size']/1e9,r['indexer'],r['title'][:70],'  ⚠ AVI-ONLY (use --transcode-avi)' if r.get('avi_only') else ''))" >&2
   local size; size="$(printf '%s' "$rel" | python3 -c "import sys,json;print(json.load(sys.stdin)['size'])")"
   space_guard "$size" || return 9
-  log "ready — run: media-get get \"$QUERY\""
+  log "ready — run: nas-download get \"$QUERY\""
   printf '%s\n' "$rel"
 }
 
@@ -375,7 +375,7 @@ do_get() {
   # detached watcher on the NAS side is overkill here; foreground poll a few times,
   # the skill re-invokes 'status' for long tails.
   progress "$h"
-  printf 'started %s [%s] hash=%s. Use: media-get status\n' "$TYPE" "$cat" "$h"
+  printf 'started %s [%s] hash=%s. Use: nas-download status\n' "$TYPE" "$cat" "$h"
   [ "$avi" = "1" ] && printf '(avi → will transcode to MP4 after download)\n'
 }
 

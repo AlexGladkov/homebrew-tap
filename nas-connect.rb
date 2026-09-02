@@ -8,9 +8,9 @@ class NasConnect < Formula
   homepage "https://github.com/AlexGladkov/homecontrol"
   url "ssh://git@github.com/AlexGladkov/homecontrol.git",
       using:    :git,
-      tag:      "v0.1.0",
-      revision: "11bd03151dff3d66b5fb51fcfd2a1bb059795a45"
-  version "0.1.0"
+      tag:      "v0.2.0",
+      revision: "b6173bdfc288b145998a1f961ab35c3f19c6c2c7"
+  version "0.2.0"
   license "MIT"
 
   depends_on :macos

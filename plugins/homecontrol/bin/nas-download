@@ -227,6 +227,152 @@ jellyfin_scan() {
   [ -n "$tok" ] && nas_sudo "curl -s -X POST -H 'X-Emby-Token: $tok' http://localhost:8096/Library/Refresh >/dev/null" || true
 }
 
+# ── operations.media.import (subcommand) — import completed downloads ─────────
+# Idempotent: hardlink every COMPLETED movie/series torrent into the library. Safe to
+# re-run (cp -al no-ops if already linked). Optional query filters by name. This is how
+# a finished download reaches Jellyfin — `get` returns before completion, so the skill
+# watches `status` and calls `import` once the torrent hits 100%.
+do_import() {
+  local q="${1:-}" any=0 c typ list h
+  for c in radarr tv-sonarr; do
+    typ=movie; [ "$c" = tv-sonarr ] && typ=series
+    list="$(pcurl "\"http://qbittorrent:8080/api/v2/torrents/info?category=$c\"" \
+      | Q="$q" python3 -c "import os,sys,json
+q=os.environ['Q'].lower(); toks=[t for t in q.split() if len(t)>=3]
+for t in json.load(sys.stdin):
+    n=t['name'].lower()
+    if t['progress']>=1 and (all(x in n for x in toks) if toks else (q in n if q else True)):
+        print(t['hash'])" 2>/dev/null)"
+    for h in $list; do import_release "$h" "$typ" >&2; any=1; done
+  done
+  [ "$any" = 1 ] || echo "nothing completed to import${q:+ for \"$q\"}" >&2
+}
+
+# ── operations.media.remove — targeted, confirmation-gated deletion ───────────
+# Honest reclaimable accounting (dead entry / hardlink-aware / real du). NEVER deletes on
+# its own: bare `rm "<query>"` only PLANS (lists matches + real disk freed). Deletion happens
+# only via explicit `--torrent <hash>` / `--path <abs>` selectors, which the skill passes
+# after the user confirms.
+#   container path (/data/…) → host path (/volume1/data/…) for du/find on the NAS host.
+_hostpath() { case "$1" in /data/*) printf '%s%s' "$NAS_VOLUME" "$1";; *) printf '%s' "$1";; esac; }
+# echo "TAG KB" — TAG ∈ DEAD|HARDLINK|REAL ; KB = real on-disk kilobytes (0 for DEAD)
+_reclaim() {
+  local cp="$1" st="$2" hp res flag kb
+  [ "$st" = missingFiles ] && { echo "DEAD 0"; return; }
+  hp="$(_hostpath "$cp")"
+  res="$(nas_sudo "if [ ! -e \"$hp\" ]; then echo MISS; else (find \"$hp\" -type f -links +1 2>/dev/null | head -1 | grep -q . && echo HARD || echo REAL); du -sk \"$hp\" 2>/dev/null | cut -f1; fi")"
+  flag="$(printf '%s\n' "$res" | sed -n 1p)"; kb="$(printf '%s\n' "$res" | sed -n 2p)"
+  case "$flag" in MISS|"") echo "DEAD 0";; HARD) echo "HARDLINK ${kb:-0}";; *) echo "REAL ${kb:-0}";; esac
+}
+_gb() { awk -v k="${1:-0}" 'BEGIN{printf (k>=1048576)?"%.1fGB":"%dMB", (k>=1048576)?k/1048576:k/1024}'; }
+
+do_rm() {
+  [ "$APPLY" = 1 ] && { rm_apply; return; }
+  [ -n "$QUERY" ] || die "rm needs a title, e.g. nas-download rm \"Spider-Man 2 2004\"" 64
+  local n=0 hostpaths="" IFS_OLD="$IFS"
+  echo "Matches for \"$QUERY\":" >&2
+  # torrents (any category) whose name matches all query tokens (>=3 chars)
+  local rows; rows="$(pcurl "\"http://qbittorrent:8080/api/v2/torrents/info\"" \
+    | Q="$QUERY" python3 -c "import os,sys,json
+q=os.environ['Q'].lower(); toks=[t for t in q.split() if len(t)>=3]
+for t in json.load(sys.stdin):
+    n=t['name'].lower()
+    if (all(x in n for x in toks) if toks else q in n):
+        print('\t'.join([t['hash'],t.get('state',''),t.get('content_path',''),t['name']]))" 2>/dev/null)"
+  IFS='
+'
+  local line
+  for line in $rows; do
+    IFS='	' read -r h st cp nm <<EOF
+$line
+EOF
+    local tag kb r disp; r="$(_reclaim "$cp" "$st")"; tag="${r%% *}"; kb="${r##* }"
+    case "$tag" in
+      DEAD) disp="0 (dead entry — tidies the list, frees nothing)";;
+      HARDLINK) disp="$(_gb "$kb") (shared — frees only if the library copy goes too)"; hostpaths="$hostpaths
+$(_hostpath "$cp")";;
+      *) disp="$(_gb "$kb")"; hostpaths="$hostpaths
+$(_hostpath "$cp")";;
+    esac
+    printf '  [torrent] %s  %-42s  %s  %s\n' "$h" "$disp" "$st" "$(printf '%s' "$nm" | cut -c1-46)" >&2
+    n=$((n+1))
+  done
+  IFS="$IFS_OLD"
+  # library files/dirs (movies/tv/music) matching the query
+  local paths; paths="$(nas_sudo "find $MEDIA_ROOT/movies $MEDIA_ROOT/tv $MEDIA_ROOT/music -mindepth 1 -maxdepth 1 2>/dev/null" \
+    | Q="$QUERY" python3 -c "import os,sys
+q=os.environ['Q'].lower(); toks=[t for t in q.split() if len(t)>=3]
+for p in sys.stdin.read().splitlines():
+    b=os.path.basename(p).lower()
+    if (all(x in b for x in toks) if toks else q in b): print(p)" 2>/dev/null)"
+  IFS='
+'
+  local p
+  for p in $paths; do
+    [ -n "$p" ] || continue
+    local kb hard; kb="$(nas_sudo "du -sk \"$p\" 2>/dev/null | cut -f1")"
+    hard="$(nas_sudo "find \"$p\" -type f -links +1 2>/dev/null | head -1")"
+    if [ -n "$hard" ]; then
+      printf '  [file]    %s  %s\n' "$p" "$(_gb "${kb:-0}") (shared — frees only if the torrent goes too)" >&2
+    else
+      printf '  [file]    %s  %s\n' "$p" "$(_gb "${kb:-0}")" >&2
+    fi
+    hostpaths="$hostpaths
+$p"; n=$((n+1))
+  done
+  IFS="$IFS_OLD"
+  [ "$n" -gt 0 ] || { echo "  (no matches — try the other-language title or add the year)" >&2; return; }
+  # honest TOTAL: dedupe by inode across every listed copy → real bytes freed if ALL removed.
+  # nas_sudo's stdin carries the sudo password, so the path list travels as base64 in the
+  # command (decoded to a temp file on the NAS), not via a pipe.
+  local b64; b64="$(printf '%s' "$hostpaths" | base64 | tr -d '\n')"
+  local totalkb; totalkb="$(nas_sudo "printf %s $b64 | base64 -d > /tmp/hcrm.list; python3 -c \"import os
+seen=set(); tot=0
+for p in open('/tmp/hcrm.list').read().splitlines():
+    if not p or not os.path.exists(p): continue
+    walk=[os.path.join(r,f) for r,_,fs in os.walk(p) for f in fs] if os.path.isdir(p) else [p]
+    for f in walk:
+        try:
+            s=os.stat(f); k=(s.st_dev,s.st_ino)
+            if k in seen: continue
+            seen.add(k); tot+=s.st_size
+        except OSError: pass
+print(tot//1024)\"; rm -f /tmp/hcrm.list")"
+  echo "" >&2
+  echo "Reclaimable if ALL listed copies are removed: $(_gb "${totalkb:-0}")" >&2
+  echo "To delete AFTER confirming with the user: nas-download rm --torrent <hash> [--path <abs>] --apply" >&2
+}
+
+# delete ONLY the explicitly listed selectors, then report real df delta. Path guard:
+# absolute, under the media/torrents roots, no '..'.
+rm_apply() {
+  [ -n "$RM_TORRENTS$RM_PATHS" ] || die "rm --apply needs --torrent <hash> and/or --path <abs>" 64
+  local before after freed h p
+  before="$(nas_sudo "df -k $NAS_VOLUME | tail -1 | awk '{print \$4}'")"
+  for h in $RM_TORRENTS; do
+    [ -n "$h" ] || continue
+    pcurl "--data \"hashes=$h\" -d deleteFiles=true http://qbittorrent:8080/api/v2/torrents/delete" >/dev/null 2>&1 || true
+    echo "removed torrent $h (+ its files)" >&2
+  done
+  local IFS_OLD="$IFS"; IFS='
+'
+  for p in $RM_PATHS; do
+    [ -n "$p" ] || continue
+    case "$p" in
+      *..*) echo "REFUSED (has ..): $p" >&2; continue;;
+      "$MEDIA_ROOT"/*|"$TORRENTS_DIR"/*) : ;;
+      *) echo "REFUSED (outside media/torrents): $p" >&2; continue;;
+    esac
+    nas_sudo "rm -rf -- \"$p\"" && echo "removed file $p" >&2
+  done
+  IFS="$IFS_OLD"
+  jellyfin_scan
+  after="$(nas_sudo "df -k $NAS_VOLUME | tail -1 | awk '{print \$4}'")"
+  freed=$(( ${after:-0} - ${before:-0} ))
+  [ "$freed" -lt 0 ] && freed=0
+  echo "freed: $(_gb "$freed") (df delta)" >&2
+}
+
 # ── operations.music.soulseek — music via slskd (not torrents) ────────────────
 # slskd API key (soularr, readwrite) read from slskd.yml at runtime (48-hex; the only 40+hex there)
 slskd_key() { nas_sudo "grep -oE '[0-9a-f]{40,}' $NAS_VOLUME/docker/slskd/slskd.yml | head -1"; }
@@ -319,7 +465,14 @@ nas-download — download a movie / series / music onto the NAS (never avi, defa
   nas-download get   "<query>" [--type ...] [--quality ...] [--transcode-avi] [--free <hash>]
         plan + download + watch progress + auto-import into the Jellyfin library
   nas-download status
-        progress of active nas-download downloads
+        progress of active nas-download downloads (speed / ETA / downloaded-of-total)
+  nas-download import ["<query>"]
+        hardlink COMPLETED downloads into the Jellyfin library (idempotent; run on 100%)
+  nas-download rm "<title>"
+        PLAN a targeted delete: list matching torrents + library files with the REAL disk
+        freed (dead/hardlinked count as ~0). Deletes NOTHING.
+  nas-download rm --torrent <hash> [--path <abs>] --apply
+        delete exactly those selectors (confirm with the user first), report freed via df
 
 Notes:
   - refuses if NAS free space < release size + ${SPACE_HEADROOM_GB}GB; lists deletable candidates (never deletes).
@@ -330,13 +483,16 @@ USG
 
 # arg parse
 CMD="${1:-}"; shift || true
-QUERY=""; TYPE=""; QUALITY="1080p"; TRANSCODE=0; FREE=""
+QUERY=""; TYPE=""; QUALITY="1080p"; TRANSCODE=0; FREE=""; APPLY=0; RM_TORRENTS=""; RM_PATHS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --type) TYPE="$2"; shift 2;;
     --quality) QUALITY="$2"; shift 2;;
     --transcode-avi) TRANSCODE=1; shift;;
     --free) FREE="$2"; shift 2;;
+    --apply) APPLY=1; shift;;
+    --torrent) RM_TORRENTS="$RM_TORRENTS $2"; shift 2;;
+    --path) RM_PATHS="$(printf '%s\n%s' "$RM_PATHS" "$2")"; shift 2;;
     -h|--help) usage; exit 0;;
     *) [ -z "$QUERY" ] && QUERY="$1"; shift;;
   esac
@@ -380,7 +536,15 @@ do_get() {
   # detached watcher on the NAS side is overkill here; foreground poll a few times,
   # the skill re-invokes 'status' for long tails.
   progress "$h"
-  printf 'started %s [%s] hash=%s. Use: nas-download status\n' "$TYPE" "$cat" "$h"
+  # if it finished already (cached/fast), import right now; otherwise the skill watches
+  # `status` and runs `nas-download import` on completion (get returns before long tails).
+  local done; done="$(pcurl "\"http://qbittorrent:8080/api/v2/torrents/info?hashes=$h\"" \
+    | python3 -c "import sys,json;d=json.load(sys.stdin);print('1' if d and d[0]['progress']>=1 else '0')" 2>/dev/null)"
+  if [ "$done" = 1 ]; then
+    import_release "$h" "$TYPE"
+  else
+    printf 'started %s [%s] hash=%s. Watch: nas-download status — on 100%% run: nas-download import\n' "$TYPE" "$cat" "$h"
+  fi
   [ "$avi" = "1" ] && printf '(avi → will transcode to MP4 after download)\n'
 }
 
@@ -427,6 +591,8 @@ case "$CMD" in
   plan)   do_plan >/dev/null ;;
   get)    do_get ;;
   status) do_status ;;
+  import) do_import "$QUERY" ;;
+  rm|remove|delete) do_rm ;;
   -h|--help|"") usage ;;
   *) usage; exit 64 ;;
 esac

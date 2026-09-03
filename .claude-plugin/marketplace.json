@@ -10,7 +10,7 @@
       "source": "./plugins/homecontrol",
       "displayName": "homecontrol — home NAS skills",
       "description": "nas-connect / nas-download / nas-cleanup skills for a home NAS.",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "license": "MIT"
     }
   ],

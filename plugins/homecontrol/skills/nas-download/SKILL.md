@@ -24,17 +24,52 @@ a free-space guard, progress, and auto-import. Helper: `bin/nas-download.sh` (in
 3. **If it reports ⚠ AVI-ONLY** — tell the user only an avi release exists; offer
    `--transcode-avi` (downloads it and transcodes to MP4). Don't grab avi silently.
 
-4. **Download + import:**
+4. **Download:**
    ```bash
    nas-download get "The Bear season 3" --type series
    ```
-   Adds to qBittorrent (force-started), prints initial progress, then auto-imports into the
-   Jellyfin library on completion.
+   Adds to qBittorrent (force-started) and prints initial progress. `get` returns before a
+   long download finishes — it does **not** block to completion.
 
 5. **Progress of active downloads:**
    ```bash
    nas-download status
    ```
+   Shows each active download with speed, **ETA**, and downloaded-of-total.
+
+6. **Import on completion (this is how it reaches Jellyfin):**
+   After `get`, watch `status`; when the item hits **100%**, run:
+   ```bash
+   nas-download import "The Bear season 3"   # or no arg = import everything completed
+   ```
+   Idempotent (hardlinks into the library + triggers a Jellyfin scan; re-running is a no-op).
+   If a download finishes instantly (cached), `get` imports it right away.
+
+## Removing a title (delete — confirmation-gated)
+
+Use when the user says "удали фильм/сериал X", "delete", "remove <title>". **NEVER delete
+without an explicit user confirmation.**
+
+1. **Plan (read-only — deletes nothing):**
+   ```bash
+   nas-download rm "Spider-Man 2 2004"
+   ```
+   Pass the **title + year** (and, if the file is stored under the other-language name, use
+   that name — you know both). It lists every matching torrent + library file and the honest
+   **reclaimable if ALL listed copies are removed** (inode-deduped; a dead entry frees 0, a
+   lone hardlink frees nothing until its paired copy goes too).
+
+2. **Confirm with the user** via `AskUserQuestion`: show the title and the reclaimable GB, ask
+   "Точно удалить «X»? Освободится ~N GB." Wait for an explicit yes. Ambiguous / multiple
+   distinct titles matched → ask which one.
+
+3. **Delete only the confirmed selectors:**
+   ```bash
+   nas-download rm --torrent <hash> --path "<abs>" [--torrent …] [--path …] --apply
+   ```
+   Pass the torrent hash(es) **and** the library path(s) from the plan so the shared inode is
+   fully freed. Reports freed space from a `df` before/after. Path deletion is guarded to the
+   media/torrents roots (no `..`, nothing outside).
 
 ## Options
 

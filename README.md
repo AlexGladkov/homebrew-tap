@@ -67,8 +67,17 @@ done
 
 ## Use
 ```bash
-nas-download plan "Dune 2021"                    # pick a release + check space (no download)
-nas-download get  "The Bear season 3"            # download + auto-import into Jellyfin
-nas-download get  "Daft Punk Discovery" --type music
+nas-download plan  "Dune 2021"                   # pick a release + check space (no download)
+nas-download get   "The Bear season 3"           # download (force-started)
+nas-download status                              # active downloads: speed / ETA / done-of-total
+nas-download import "The Bear season 3"           # on 100% → hardlink into Jellyfin (idempotent)
+nas-download get   "Daft Punk Discovery" --type music
+
+# Delete a specific title — plan is read-only and shows how much frees; then confirm:
+nas-download rm "Spider-Man 2 2004"              # lists matches + inode-deduped reclaimable
+nas-download rm --torrent <hash> --path "<abs>" --apply   # deletes only these (guarded)
+
 # nas-cleanup is LLM-driven — ask Claude to "free space on the NAS".
 ```
+In Claude Code just ask in natural language ("скачай …", "удали фильм …") — the skills drive
+these commands and hold the delete confirmation gate.

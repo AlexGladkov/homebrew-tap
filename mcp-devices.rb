@@ -1,7 +1,7 @@
 class McpDevices < Formula
   desc "Fast native CLI for mobile device automation (Android/iOS/Aurora/Desktop)"
   homepage "https://github.com/AlexGladkov/claude-in-mobile"
-  version "4.2.3"
+  version "4.3.0"
   license "MIT"
 
   # Renamed from claude-in-mobile in 4.0 — `brew upgrade claude-in-mobile`
@@ -10,11 +10,11 @@ class McpDevices < Formula
   on_macos do
     on_arm do
       url "https://github.com/AlexGladkov/claude-in-mobile/releases/download/v#{version}/claude-in-mobile-#{version}-darwin-arm64.tar.gz"
-      sha256 "790c94b558979f944a1c1ce11339eede625e2527952435e97f03ca75f8308e69"
+      sha256 "edd38c6518ece0d04720b3630045e04086cd121114a16257a7445d21dbdc2a2f"
     end
     on_intel do
       url "https://github.com/AlexGladkov/claude-in-mobile/releases/download/v#{version}/claude-in-mobile-#{version}-darwin-x86_64.tar.gz"
-      sha256 "2e741ba0509e4cd94236cb64115728f78e4d9d3a8a416f7366af27f01d7eff41"
+      sha256 "95d292691e87db4b8fd62aeef7e7698474abe65e75dc87fa5376e35ace118304"
     end
   end
 

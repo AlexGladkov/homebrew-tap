@@ -2,6 +2,22 @@
 
 This repo is **both** a Claude Code plugin marketplace and a Homebrew tap.
 
+## Yashik — coding-agent environments from YAML
+
+Install [Yashik](https://github.com/AlexGladkov/Yashik) on Linux or macOS,
+x86_64 or ARM64, without building Rust:
+
+```sh
+brew install AlexGladkov/tap/yashik
+yashik init /path/to/yashik.yaml
+yashik doctor
+```
+
+The formula installs only Yashik. `init` installs the clients and supported MCP,
+subagents, skills, and rules selected in your YAML. Sign in to the clients
+separately. Shell installation and Windows/WSL instructions are in the
+[Yashik README](https://github.com/AlexGladkov/Yashik#readme).
+
 ## homecontrol — Claude Code skills for a home NAS
 
 Skills to run your home NAS from Claude Code without re-entering context. Secrets in the

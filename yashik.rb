@@ -6,23 +6,23 @@ class Yashik < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/AlexGladkov/Yashik/releases/download/v0.3.0/yashik-macos-aarch64.tar.gz"
-      sha256 "78dea6f490cf365a2895addd33f88c03c5a9bdd4e30964026dd32075004f38f9"
+      url "https://github.com/AlexGladkov/Yashik/releases/download/v0.4.0/yashik-macos-aarch64.tar.gz"
+      sha256 "1d951df998146795472aeda5447aa5cf8413f1d8cc1dfb846a8debaaa639b237"
     end
     on_intel do
-      url "https://github.com/AlexGladkov/Yashik/releases/download/v0.3.0/yashik-macos-x86_64.tar.gz"
-      sha256 "8026a7b61f163ada068b2ba776b2a7848163e4f97ebfe8cbe2341c8403076dc9"
+      url "https://github.com/AlexGladkov/Yashik/releases/download/v0.4.0/yashik-macos-x86_64.tar.gz"
+      sha256 "67c26b4ad3de68839394ff5b289589f27c2b24c5b4d9381d73d1627bd1e16362"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/AlexGladkov/Yashik/releases/download/v0.3.0/yashik-linux-aarch64.tar.gz"
-      sha256 "1a84743b79a37a8f5b6a0520e430f51129f93c728fc389a9ce00c9e05c591075"
+      url "https://github.com/AlexGladkov/Yashik/releases/download/v0.4.0/yashik-linux-aarch64.tar.gz"
+      sha256 "aa29f28a3d6d9e133bec22b935546c55e10393eaa85cc0c9d3362dbce8f4756a"
     end
     on_intel do
-      url "https://github.com/AlexGladkov/Yashik/releases/download/v0.3.0/yashik-linux-x86_64.tar.gz"
-      sha256 "75ce1f60f524ddf4c6a5a6d7b002359389f6595e710aab19441149c116a38722"
+      url "https://github.com/AlexGladkov/Yashik/releases/download/v0.4.0/yashik-linux-x86_64.tar.gz"
+      sha256 "20054f552918620befc8ce8092fbfaeec5302b9df7699b48ca5e7ac48b8d8b75"
     end
   end
 
